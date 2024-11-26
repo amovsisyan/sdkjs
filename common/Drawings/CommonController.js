@@ -11132,7 +11132,13 @@
 		}
 
 		function isLeftButtonDoubleClick(oEvent) {
-			if (oEvent.ClickCount > 1 && oEvent.ClickCount % 2 === 0 && oEvent.Button === 0) {
+			if (oEvent.ClickCount > 1 && oEvent.ClickCount % 2 === 0 && isLeftButtonClick(oEvent)) {
+				return true;
+			}
+			return false;
+		}
+		function isLeftButtonClick(oEvent) {
+			if (oEvent.Button === 0) {
 				return true;
 			}
 			return false;
@@ -11395,6 +11401,7 @@
 		window['AscFormat'].drawingsUpdateForeignCursor = drawingsUpdateForeignCursor;
 		window['AscFormat'].fSortTrackObjects = fSortTrackObjects;
 		window['AscFormat'].isLeftButtonDoubleClick = isLeftButtonDoubleClick;
+		window['AscFormat'].isLeftButtonClick = isLeftButtonClick;
 		window['AscFormat'].isSlideLikeObject = isSlideLikeObject;
 		window['AscFormat'].WHITE_RECT_IMAGE = WHITE_RECT_IMAGE;
 		window['AscFormat'].WHITE_RECT_IMAGE_DATA = WHITE_RECT_IMAGE_DATA;

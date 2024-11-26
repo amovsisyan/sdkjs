@@ -774,56 +774,56 @@ function NewShapeTrack(presetGeom, startX, startY, theme, master, layout, slide,
                     }
                 }
             }
-        }
-        else
-        {
-            if(!shape.spPr.geometry){
-                shape.spPr.setGeometry(AscFormat.CreateGeometry(this.presetGeom));
-                if (this.presetGeom === 'formControlsButton') shape.spPr.setGeometry(AscFormat.CreateGeometry('rect'));
-            }
-            shape.setStyle(AscFormat.CreateDefaultShapeStyle(this.presetGeom));
-            if(this.arrowsCount > 0)
+            else
             {
                 if(!shape.spPr.geometry){
                     shape.spPr.setGeometry(AscFormat.CreateGeometry(this.presetGeom));
+                    if (this.presetGeom === 'formControlsButton') shape.spPr.setGeometry(AscFormat.CreateGeometry('rect'));
                 }
                 shape.setStyle(AscFormat.CreateDefaultShapeStyle(this.presetGeom));
                 if(this.arrowsCount > 0)
                 {
-                    var ln = new AscFormat.CLn();
-                    ln.setTailEnd(new AscFormat.EndArrow());
-                    ln.tailEnd.setType(AscFormat.LineEndType.Arrow);
-                    ln.tailEnd.setLen(AscFormat.LineEndSize.Mid);
-                    if(this.arrowsCount === 2)
-                    {
-                        ln.setHeadEnd(new AscFormat.EndArrow());
-                        ln.headEnd.setType(AscFormat.LineEndType.Arrow);
-                        ln.headEnd.setLen(AscFormat.LineEndSize.Mid);
+                    if(!shape.spPr.geometry){
+                        shape.spPr.setGeometry(AscFormat.CreateGeometry(this.presetGeom));
                     }
-                    shape.spPr.setLn(ln);
-                }
-                var spDef = this.theme && this.theme.spDef;
-                if(spDef)
-                {
-                    if(spDef.style)
+                    shape.setStyle(AscFormat.CreateDefaultShapeStyle(this.presetGeom));
+                    if(this.arrowsCount > 0)
                     {
-                        shape.setStyle(spDef.style.createDuplicate());
-                    }
-                    if(spDef.spPr)
-                    {
-                        if(spDef.spPr.Fill)
+                        var ln = new AscFormat.CLn();
+                        ln.setTailEnd(new AscFormat.EndArrow());
+                        ln.tailEnd.setType(AscFormat.LineEndType.Arrow);
+                        ln.tailEnd.setLen(AscFormat.LineEndSize.Mid);
+                        if(this.arrowsCount === 2)
                         {
-                            shape.spPr.setFill(spDef.spPr.Fill.createDuplicate());
+                            ln.setHeadEnd(new AscFormat.EndArrow());
+                            ln.headEnd.setType(AscFormat.LineEndType.Arrow);
+                            ln.headEnd.setLen(AscFormat.LineEndSize.Mid);
                         }
-                        if(spDef.spPr.ln)
+                        shape.spPr.setLn(ln);
+                    }
+                    var spDef = this.theme && this.theme.spDef;
+                    if(spDef)
+                    {
+                        if(spDef.style)
                         {
-                            if(shape.spPr.ln)
+                            shape.setStyle(spDef.style.createDuplicate());
+                        }
+                        if(spDef.spPr)
+                        {
+                            if(spDef.spPr.Fill)
                             {
-                                shape.spPr.ln.merge(spDef.spPr.ln);
+                                shape.spPr.setFill(spDef.spPr.Fill.createDuplicate());
                             }
-                            else
+                            if(spDef.spPr.ln)
                             {
-                                shape.spPr.setLn(spDef.spPr.ln.createDuplicate());
+                                if(shape.spPr.ln)
+                                {
+                                    shape.spPr.ln.merge(spDef.spPr.ln);
+                                }
+                                else
+                                {
+                                    shape.spPr.setLn(spDef.spPr.ln.createDuplicate());
+                                }
                             }
                         }
                     }

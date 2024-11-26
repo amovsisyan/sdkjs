@@ -475,9 +475,11 @@ function handleShapeImage(drawing, drawingObjectsController, e, x, y, group, pag
     {
 		const isFormControl = !!drawing.vmlDrawing;
 		const isHandleMode = drawingObjectsController.handleEventMode === HANDLE_EVENT_MODE_HANDLE;
-		if (isFormControl && isHandleMode) {
+		if (isFormControl && isHandleMode && AscFormat.isLeftButtonClick(e)) {
 			drawing.bPressed = true;
 			Asc.editor.getDrawingObjects().showDrawingObjects();
+            drawingObjectsController.curFormControl = drawing;
+            return true;
 		}
 
         let oCheckResult = drawingObjectsController.checkDrawingHyperlinkAndMacro(drawing, e, hit_in_text_rect, x, y, pageIndex);

@@ -495,6 +495,10 @@ NullState.prototype =
 					return {cursorType: sType, objectId: "1"};
 				}
 			}
+            if(this.drawingObjects.curFormControl)
+            {
+                return {cursorType: "pointer", objectId: this.drawingObjects.curFormControl.Id};
+            }
         }
         var ret;
         ret = this.drawingObjects.handleSlideComments(e, x, y, pageIndex);
@@ -677,6 +681,13 @@ NullState.prototype =
             {
                 editor.WordControl.m_oLogicDocument.noShowContextMenu = true;
             }
+        }
+
+        if(this.drawingObjects.curFormControl)
+        {
+            this.drawingObjects.curFormControl.bPressed = false;
+            Asc.editor.getDrawingObjects().showDrawingObjects();
+            this.drawingObjects.curFormControl = null;
         }
     }
 };
