@@ -1165,9 +1165,9 @@
 		let beforeVisibleRangeHeight = this._getRowTop(this.visibleRange.r1) - this.cellsTop;
 
 		//TODO mobile 2x -> if *this.getRetinaPixelRatio() -> slow horizontal scroll
-		beforeVisibleRangeHeight += this.getScrollCorrect()*this.getRetinaPixelRatio();
+		beforeVisibleRangeHeight += this.getScrollCorrect();
 		let defaultScrollPxStep = Asc.round(this.getVScrollStep());
-		return defaultScrollPxStep === 0 ? 0 : ((beforeVisibleRangeHeight - frozenVisibleRangeHeight)/defaultScrollPxStep) / this.getRetinaPixelRatio();
+		return defaultScrollPxStep === 0 ? 0 : (((beforeVisibleRangeHeight - frozenVisibleRangeHeight)/defaultScrollPxStep));
 	};
 
 	WorksheetView.prototype.getVerticalSmoothScrollRange = function (bCheckEqual) {
@@ -1199,7 +1199,8 @@
 		if (isMobileVersion || AscCommonExcel.c_oAscScrollType.ScrollInitRowsColsCount & this.scrollType) {
 			//beforeVisibleRangeHeight += this.getScrollCorrect();
 		}
-		return defaultScrollPxStep === 0 ? 0 : ((beforeVisibleRangeHeight - frozenVisibleRangeHeight)/defaultScrollPxStep) / this.getRetinaPixelRatio();
+		//beforeVisibleRangeHeight += this.getScrollCorrect();
+		return defaultScrollPxStep === 0 ? 0 : ((beforeVisibleRangeHeight - frozenVisibleRangeHeight)/defaultScrollPxStep)/this.getRetinaPixelRatio();
 	};
 
 	WorksheetView.prototype.getFirstVisibleColSmoothScroll = function (allowPane) {
@@ -10659,6 +10660,7 @@
 	//smooth scroll
 	WorksheetView.prototype.setScrollCorrect = function (val, needDraw) {
 		this.scrollCorrect = val;
+		console.log(" setScrollCorrect: " + val)
 		if (needDraw) {
 			this.draw();
 		}

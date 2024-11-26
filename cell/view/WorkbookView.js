@@ -1255,7 +1255,7 @@
 			this.controller.reinitScrollX(this.controller.hsbApi.settings, this.getSmoothScrolling() ? ws.getFirstVisibleColSmoothScroll(true) :  ws.getFirstVisibleCol(true), ws.getHorizontalScrollRange(), ws.getHorizontalScrollMax());
 		}
 		if (AscCommonExcel.c_oAscScrollType.ScrollVertical & type) {
-			this.controller.reinitScrollY(this.controller.vsbApi.settings, this.getSmoothScrolling() ? ws.getFirstVisibleRowSmoothScroll(true) :  ws.getFirstVisibleRow(true), ws.getVerticalScrollRange(), ws.getVerticalScrollMax());
+			this.controller.reinitScrollY(this.controller.vsbApi.settings, this.getSmoothScrolling() ? ws.getFirstVisibleRowSmoothScroll(true)/AscCommon.AscBrowser.retinaPixelRatio :  ws.getFirstVisibleRow(true), ws.getVerticalScrollRange(), ws.getVerticalScrollMax());
 		}
 
 		if (this.MobileTouchManager) {
@@ -1280,8 +1280,10 @@
 	WorkbookView.prototype._onScrollY = function (pos, initRowsCount, bDefaultStep) {
 		let ws = this.getWorksheet();
 		let t = this;
+		console.log(" pos: " + pos)
+		pos = pos*AscCommon.AscBrowser.retinaPixelRatio
 		let doScroll = function () {
-			var delta = !t.getSmoothScrolling() ? (asc_round(pos - ws.getFirstVisibleRow(true))) : (pos - ws.getFirstVisibleRowSmoothScroll(true));
+			var delta = !t.getSmoothScrolling() ? (asc_round(pos - ws.getFirstVisibleRow(true))) : (pos - (ws.getFirstVisibleRowSmoothScroll(true)));
 			if (delta !== 0) {
 				ws.scrollVertical(delta, t.cellEditor, initRowsCount);
 			}
