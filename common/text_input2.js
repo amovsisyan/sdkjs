@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -112,6 +112,7 @@
 		this.nativeFocusElementNoRemoveOnElementFocus = false;
 		this.InterfaceEnableKeyEvents = true;
 		this.isNoClearOnFocus = false;
+		this.isGlobalDisableFocus = false;
 
 		this.ReadOnlyCounter = 0;
 
@@ -128,6 +129,12 @@
 		this.checkClearTextOnFocusTimerId = -1;
 
 		this.isDisableKeyboard = false;
+
+		this.moveAccurateInfo = {
+			id : -1,
+			x : 0,
+			y : 0
+		};
 	}
 
 	var CTextInputPrototype = CTextInput2.prototype;
@@ -555,6 +562,8 @@
 
 		if (!isAsync)
 		{
+			window.LOCK_DRAW = true;
+
 			if (this.IsComposition)
 			{
 				this.compositeReplace(codes);
@@ -871,7 +880,8 @@
 					return;
 			}
 
-			focusHtmlElement(this.HtmlArea);
+			if (!this.isGlobalDisableFocus)
+				focusHtmlElement(this.HtmlArea);
 		}
 	};
 	CTextInputPrototype.externalEndCompositeInput = function()
@@ -934,7 +944,11 @@
 		{
 			_style = ("left:-" + (this.HtmlAreaWidth >> 1) + "px;top:" + (-this.HtmlAreaOffset) + "px;");
 			_style += "color:transparent;caret-color:transparent;background:transparent;";
-			_style += AscCommon.AscBrowser.isAppleDevices ? "font-size:0px;" : "font-size:8px;";
+
+			if (this.Api.isUseOldMobileVersion())
+				_style += (AscCommon.AscBrowser.isAppleDevices && !AscCommon.AscBrowser.isTelegramWebView && (AscCommon.AscBrowser.maxTouchPoints > 0)) ? "font-size:0px;" : "font-size:8px;";
+			else
+				_style += "font-size:8px;";
 		}
 		else
 		{
@@ -1042,7 +1056,7 @@
 
 		if (AscCommon.AscBrowser.isChrome)
 		{
-			var rectObject = _elemSrc.getBoundingClientRect();
+			var rectObject = AscCommon.UI.getBoundingClientRect(_elemSrc);
 			this.FixedPosCheckElementX = rectObject.left;
 			this.FixedPosCheckElementY = rectObject.top;
 		}
@@ -1064,7 +1078,7 @@
 			_elem.style.height = _elemSrc.style.height;
 		}
 
-		if (this.Api.isMobileVersion)
+		if (this.Api.isUseOldMobileVersion())
 		{
 			var _elem1 = document.getElementById("area_id_parent");
 			var _elem2 = document.getElementById("area_id");
@@ -1073,7 +1087,17 @@
 
 
 			_elem1.style.left = "0px";
-			_elem1.style.top = "-1000px";
+			let topStyle = "-1000px";
+
+			if (AscCommon.AscBrowser.isTelegramWebView)
+			{
+				if (!AscCommon.AscBrowser.isAndroid && !AscCommon.AscBrowser.isAppleDevices)
+					topStyle = "0px";
+				else if (AscCommon.AscBrowser.isAppleDevices && navigator.maxTouchPoints === 0)
+					topStyle = "0px";
+			}
+
+			_elem1.style.top = topStyle;
 			_elem1.style.right = "0px";
 			_elem1.style.bottom = "-100px";
 			_elem1.style.width = "auto";
@@ -1105,9 +1129,27 @@
 				focusHtmlElement(this.HtmlArea);
 		}
 	};
+	CTextInputPrototype.moveAccurate = function(x, y)
+	{
+		if (!this.moveAccurateFunc)
+		{
+			this.moveAccurateFunc = function() {
+				let ctx = AscCommon.g_inputContext;
+				ctx.move(ctx.moveAccurateInfo.x, ctx.moveAccurateInfo.y);
+				ctx.moveAccurateInfo.id = -1;
+			};
+		}
+
+		if (-1 !== this.moveAccurateInfo.id)
+			clearTimeout(this.moveAccurateInfo.id);
+
+		this.moveAccurateInfo.x = x;
+		this.moveAccurateInfo.y = y;
+		this.moveAccurateInfo.id = setTimeout(this.moveAccurateFunc, 20);
+	};
 	CTextInputPrototype.move = function(x, y)
 	{
-		if (this.Api.isMobileVersion)
+		if (this.Api.isUseOldMobileVersion())
 			return;
 
 		var oTarget = document.getElementById(this.TargetId);
@@ -1119,6 +1161,13 @@
 
 		if (AscCommon.AscBrowser.isSafari && AscCommon.AscBrowser.isMobile)
 			xPos = -100;
+
+		if (this.Api.editorId === AscCommon.c_oEditorId.Presentation)
+		{
+			let offset = this.Api.getTextInputOffset();
+			xPos += offset.X;
+			yPos += offset.Y;
+		}
 
 		this.HtmlDiv.style.left = xPos + this.FixedPosCheckElementX + "px";
 		this.HtmlDiv.style.top  = yPos + this.FixedPosCheckElementY + this.TargetOffsetY + this.HtmlAreaOffset + "px";
@@ -1182,9 +1231,22 @@
 
 		if (!this.isDisableKeyboard)
 		{
-			if (this.Api.isRestrictionView() && !this.Api.isRestrictionForms())
+			switch (this.Api.editorId)
 			{
-				this.isDisableKeyboard = true;
+				case AscCommon.c_oEditorId.Word:
+				{
+					// use canEnterText instead this
+					break;
+				}
+				case AscCommon.c_oEditorId.Presentation:
+				case AscCommon.c_oEditorId.Spreadsheet:
+				{
+					if (this.Api.isRestrictionView() && !this.Api.isRestrictionForms())
+						this.isDisableKeyboard = true;
+					break;
+				}
+				default:
+					break;
 			}
 		}
 
@@ -1393,5 +1455,23 @@
 
 		window['AscCommon'].g_inputContext.debugInputEnable(true);
 		window['AscCommon'].g_inputContext.show();
+	};
+
+	window['AscCommon'].StartIntervalDrawText = function (isStart) {
+		if (isStart) {
+			window.renderIntervalId = setInterval(function(){
+
+				window.LOCK_DRAW = false;
+
+				if (undefined !== window.TEXT_DRAW_INSTANCE)
+					window.TEXT_DRAW_INSTANCE._renderText(window.TEXT_DRAW_INSTANCE_POS);
+
+				window.TEXT_DRAW_INSTANCE = undefined;
+				window.TEXT_DRAW_INSTANCE_POS = 0;
+
+			}, 20);
+		} else {
+			clearInterval(window.renderIntervalId);
+		}
 	};
 })(window);

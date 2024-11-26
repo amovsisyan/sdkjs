@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -1070,6 +1070,7 @@ function (window, undefined) {
 	cCEILING_PRECISE.prototype.argumentsMin = 1;
 	cCEILING_PRECISE.prototype.argumentsMax = 2;
 	cCEILING_PRECISE.prototype.isXLFN = true;
+	cCEILING_PRECISE.prototype.argumentsType = [argType.number, argType.number];
 	cCEILING_PRECISE.prototype.Calculate = function (arg) {
 		var oArguments = this._prepareArguments(arg, arguments[1]);
 		var argClone = oArguments.args;
@@ -1395,6 +1396,7 @@ function (window, undefined) {
 	cCOTH.prototype.argumentsMax = 1;
 	cCOTH.prototype.isXLFN = true;
 	cCOTH.prototype.numFormat = AscCommonExcel.cNumFormatNone;
+	cCOTH.prototype.argumentsType = [argType.number];
 	cCOTH.prototype.Calculate = function (arg) {
 		var arg0 = arg[0];
 
@@ -1889,7 +1891,7 @@ function (window, undefined) {
 	cFLOOR.prototype.name = 'FLOOR';
 	cFLOOR.prototype.argumentsMin = 2;
 	cFLOOR.prototype.argumentsMax = 2;
-	cFLOOR.prototype.argumentsType = [argType.number, argType.number, argType.number];
+	cFLOOR.prototype.argumentsType = [argType.number, argType.number];
 	cFLOOR.prototype.Calculate = function (arg) {
 		var arg0 = arg[0], arg1 = arg[1];
 		if (arg0 instanceof cArea || arg0 instanceof cArea3D) {
@@ -1989,6 +1991,7 @@ function (window, undefined) {
 	cFLOOR_PRECISE.prototype.argumentsMin = 1;
 	cFLOOR_PRECISE.prototype.argumentsMax = 2;
 	cFLOOR_PRECISE.prototype.isXLFN = true;
+	cFLOOR_PRECISE.prototype.argumentsType = [argType.number, argType.number];
 	cFLOOR_PRECISE.prototype.Calculate = function (arg) {
 		var oArguments = this._prepareArguments(arg, arguments[1]);
 		var argClone = oArguments.args;
@@ -2220,6 +2223,7 @@ function (window, undefined) {
 	cISO_CEILING.prototype.name = 'ISO.CEILING';
 	cISO_CEILING.prototype.argumentsMin = 1;
 	cISO_CEILING.prototype.argumentsMax = 2;
+	cISO_CEILING.prototype.argumentsType = [argType.number, argType.number];
 	//cISO_CEILING.prototype.isXLFN = true;
 	cISO_CEILING.prototype.Calculate = function (arg) {
 		var oArguments = this._prepareArguments(arg, arguments[1]);
@@ -3834,7 +3838,11 @@ function (window, undefined) {
 			let firstNumber = Math.ceil(a);
 			let secondNumber = Math.floor(b);
 
-			return new cNumber(Math.round(Math.random() * Math.abs(firstNumber - secondNumber)) + firstNumber);
+			if (firstNumber === secondNumber) {
+				return new cNumber(firstNumber);
+			}
+
+			return new cNumber(Math.floor(Math.random() * (secondNumber - firstNumber + 1)) + firstNumber);
 		}
 
 		function f(a, b, r, c) {
@@ -4314,6 +4322,8 @@ function (window, undefined) {
 	cROUNDUP.prototype.argumentsType = [argType.number, argType.number];
 	cROUNDUP.prototype.Calculate = function (arg) {
 		function roundupHelper(number, num_digits) {
+			let fractionalPart = number.toString().split(".")[1];
+
 			if (num_digits > AscCommonExcel.cExcelMaxExponent) {
 				if (Math.abs(number) >= 1e-100 || num_digits <= 98303) {
 					return new cNumber(number);
@@ -4324,6 +4334,8 @@ function (window, undefined) {
 					return new cNumber(number);
 				}
 				return new cError(cErrorType.not_numeric);
+			} else if (fractionalPart && fractionalPart.length === num_digits) {
+				return new cNumber(number);
 			}
 
 			let sign = number >= 0 ? 1 : -1,
@@ -4984,9 +4996,10 @@ function (window, undefined) {
 	cSUMIF.prototype.argumentsMin = 2;
 	cSUMIF.prototype.argumentsMax = 3;
 	cSUMIF.prototype.arrayIndexes = {0: 1, 2: 1};
+	cSUMIF.prototype.exactTypes = {0: 1};
 	cSUMIF.prototype.argumentsType = [argType.reference, argType.any, argType.reference];
 	cSUMIF.prototype.Calculate = function (arg) {
-		var arg0 = arg[0], arg1 = arg[1], arg2 = arg[2] ? arg[2] : arg[0], _sum = 0, matchingInfo;
+		let arg0 = arg[0], arg1 = arg[1], arg2 = arg[2] ? arg[2] : arg[0], _sum = 0, matchingInfo;
 		if (cElementType.cell !== arg0.type && cElementType.cell3D !== arg0.type &&
 			cElementType.cellsRange !== arg0.type) {
 			if (cElementType.cellsRange3D === arg0.type) {
@@ -5017,7 +5030,9 @@ function (window, undefined) {
 			arg1 = arg1.getElementRowCol(0, 0);
 		}
 
-		arg1 = arg1.tocString();
+		if (cElementType.string !== arg1.type) {
+			arg1 = arg1.tocString();
+		}
 
 		if (cElementType.string !== arg1.type) {
 			return new cError(cErrorType.wrong_value_type);
@@ -5025,9 +5040,9 @@ function (window, undefined) {
 
 		matchingInfo = AscCommonExcel.matchingValue(arg1);
 		if (cElementType.cellsRange === arg0.type || cElementType.cell === arg0.type) {
-			var arg0Matrix = arg0.getMatrix(), arg2Matrix = arg2.getMatrix(), valMatrix2;
-			for (var i = 0; i < arg0Matrix.length; i++) {
-				for (var j = 0; j < arg0Matrix[i].length; j++) {
+			let arg0Matrix = arg0.getMatrix(), arg2Matrix = arg[2] ? arg2.getMatrix() : arg0Matrix, valMatrix2;
+			for (let i = 0; i < arg0Matrix.length; i++) {
+				for (let j = 0; j < arg0Matrix[i].length; j++) {
 					if (arg2Matrix[i] && (valMatrix2 = arg2Matrix[i][j]) && cElementType.number === valMatrix2.type &&
 						AscCommonExcel.matching(arg0Matrix[i][j], matchingInfo)) {
 						_sum += valMatrix2.getValue();
@@ -5116,6 +5131,7 @@ function (window, undefined) {
 	cSUMIFS.prototype.name = 'SUMIFS';
 	cSUMIFS.prototype.argumentsMin = 3;
 	cSUMIFS.prototype.arrayIndexes = {0: 1, 1: 1, 3: 1, 5: 1, 7: 1};
+	cSUMIFS.prototype.exactTypes = {0: 1, 1: 1};	// in this function every odd argument is should be checked for type reference
 	cSUMIFS.prototype.argumentsType = [argType.reference, [argType.reference, argType.any]];
 	cSUMIFS.prototype.Calculate = function (arg) {
 		let arg0 = arg[0];
@@ -5273,6 +5289,24 @@ function (window, undefined) {
 	};
 	cSUMIFS.prototype.checkArguments = function (countArguments) {
 		return 1 === countArguments % 2 && cBaseFunction.prototype.checkArguments.apply(this, arguments);
+	};
+	cSUMIFS.prototype.checkArgumentsTypes = function (args) {
+		// check first element, then all odd ones
+		if (!cBaseFunction.prototype.checkArgumentsTypes.call(this, [args[0]])) {
+			return false
+		}
+
+		for (let i = 1; i < args.length; i += 2) {
+			// check reference type for each odd element
+			let oddArgument = args[i];
+			if (oddArgument && this.exactTypes[1]) {
+				if (oddArgument.type !== cElementType.cellsRange && oddArgument.type !== cElementType.cellsRange3D 
+					&& oddArgument.type !== cElementType.cell && oddArgument.type !== cElementType.cell3D) {
+						return false
+				}
+			}
+		}
+		return true;
 	};
 
 	/**
@@ -5452,7 +5486,7 @@ function (window, undefined) {
 	cSUMX2PY2.prototype.argumentsMin = 2;
 	cSUMX2PY2.prototype.argumentsMax = 2;
 	cSUMX2PY2.prototype.arrayIndexes = {0: 1, 1: 1};
-	cSUMX2MY2.prototype.argumentsType = [argType.array, argType.array];
+	cSUMX2PY2.prototype.argumentsType = [argType.array, argType.array];
 	cSUMX2PY2.prototype.Calculate = function (arg) {
 
 		var func = function (a, b) {

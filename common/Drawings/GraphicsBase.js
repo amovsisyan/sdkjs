@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -35,6 +35,18 @@
 (function(window, undefined){
 
 	var darkModeEdge = 10;
+	function _darkModeCheckColor(r, g, b)
+	{
+		return (r < darkModeEdge && g < darkModeEdge && b < darkModeEdge) ? true : false;
+	}
+	function _darkModeCheckColor2(r, g, b)
+	{
+		if (r < darkModeEdge && g < darkModeEdge && b < darkModeEdge) return true;
+		var max = 255 - darkModeEdge;
+		if (r > max && g > max && b > max) return true;
+		return false;
+	}
+
 	AscCommon.darkModeCorrectColor = function(r, g, b)
 	{
 		if (r < darkModeEdge && g < darkModeEdge && b < darkModeEdge)
@@ -97,7 +109,12 @@
 
 	CGraphicsBase.prototype.isPdf = function()
 	{
-		return (this.type === AscCommon.RendererType.PDF || this.type === AscCommon.RendererType.NativeDrawer);
+		return (this.type === AscCommon.RendererType.PDF);
+	};
+
+	CGraphicsBase.prototype.isNativeDrawer = function()
+	{
+		return (this.type === AscCommon.RendererType.NativeDrawer);
 	};
 
 	CGraphicsBase.prototype.isTrack = function()
@@ -116,7 +133,7 @@
 		this.isDarkMode = true;
 		function _darkColor(_this, _func) {
 			return function(r, g, b, a) {
-				if (_this.isDarkMode && AscCommon.darkModeCheckColor(r, g, b))
+				if (_this.isDarkMode && _darkModeCheckColor(r, g, b))
 					_func.call(_this, 255 - r, 255 - g, 255 - b, a);
 				else
 					_func.call(_this, r, g, b, a);
@@ -137,7 +154,7 @@
 				if (isCorrect && 0 !== this.shapeDrawCounter)
 					if (!(1 === this.shapeDrawCounter && this.isFormDraw)) //форму первого уровня не корректируем
 						isCorrect = false;
-				if (isCorrect && AscCommon.darkModeCheckColor2(r, g, b))
+				if (isCorrect && _darkModeCheckColor2(r, g, b))
 					_func.call(_this, 255 - r, 255 - g, 255 - b, a);
 				else
 					_func.call(_this, r, g, b, a);
@@ -459,6 +476,7 @@
 		let r = (x + w);
 		let b = (y + h);
 
+		this._s();
 		this._m(x, y);
 		this._l(r, y);
 		this._l(r, b);
@@ -627,6 +645,132 @@
 		this._e();
 	};
 
+	/**
+	 * made with the use of:
+	 * http://html5tutorial.com/how-to-draw-n-grade-bezier-curve-with-canvas-api/
+	 * uses de Casteljau's algorithm
+	 * @param {{x: Number, y: Number, z? :Number}} startPoint
+	 * @param {{x: Number, y: Number, z? :Number}[]} controlPoints
+	 * @param {{x: Number, y: Number, z? :Number}} endPoint
+	 */
+	CGraphicsBase.prototype._cN = function(startPoint, controlPoints, endPoint)
+	{
+		function sumDistanceBetweenPoints(points)
+		{
+			function distance(a, b){
+				return Math.sqrt(Math.pow(a.x-b.x, 2) + Math.pow(a.y-b.y, 2));
+			}
+			/**Compute the incremental step*/
+			let tLength = 0;
+			for(let i=0; i < points.length - 1; i++){
+				tLength += distance(points[i], points[i+1]);
+			}
+			return tLength;
+		}
+
+		function transformPoints(points, dpi)
+		{
+			let pointsCopy = Array(points.length);
+			let mmToIch = 0.03937007874;
+			for(let i=0; i < pointsCopy.length; i++){
+				pointsCopy[i] = {x: null, y: null};
+				// pointsCopy[i].x = transform.TransformPointX(points[i].x, points[i].y);
+				// pointsCopy[i].y = transform.TransformPointY(points[i].x, points[i].y);
+				pointsCopy[i].x = points[i].x * mmToIch * dpi;
+				pointsCopy[i].y = points[i].y * mmToIch * dpi;
+			}
+			return pointsCopy;
+		}
+
+		/** Computes a point's coordinates for a value of t
+		 * @param {Number} t - a value between o and 1
+		 * @param {{x: Number, y: Number, z? :Number}} startPoint
+		 * @param {{x: Number, y: Number, z? :Number}[]} controlPoints
+		 * @param {{x: Number, y: Number, z? :Number}} endPoint
+		 * @return {{x: Number, y: Number}} point
+		 **/
+		function computeBezierPoint(t, startPoint, controlPoints, endPoint)
+		{
+			/**Computes Bernstain
+			 *@param {Integer} i - the i-th index
+			 *@param {Integer} n - the total number of points
+			 *@param {Number} t - the value of parameter t , between 0 and 1
+			 **/
+			function computeBernstainCoef(i,n,t)
+			{
+				/**Computes factorial*/
+				function fact(k){
+					if(k==0 || k==1){
+						return 1;
+					}
+					else{
+						return k * fact(k-1);
+					}
+				}
+
+				//if(n < i) throw "Wrong";
+				return fact(n) / (fact(i) * fact(n-i))* Math.pow(t, i) * Math.pow(1-t, n-i);
+			}
+
+			var points = [].concat(startPoint, controlPoints, endPoint);
+			var r = {
+				x: 0,
+				y: 0
+			};
+			var n = points.length-1;
+			for(var i=0; i <= n; i++){
+				r.x += points[i].x * computeBernstainCoef(i, n, t);
+				r.y += points[i].y * computeBernstainCoef(i, n, t);
+			}
+			return r;
+		}
+
+		// to calculate points count curve length should be calculated in pixels (approximately)
+		// so arguments should be in mm units and graphics.transform should be applied already
+		let calculatePointsCount = false;
+
+		let interpolationPointsCount;
+		if (calculatePointsCount) {
+			// https://www.figma.com/file/FT0m9czNuvK34TK227cQ6e/pointsToCalculatePerOnePixelLengthUnit?type=design&node-id=0%3A1&mode=design&t=0S7e2nxkt2sbCHqw-1
+			// not integer more like precision coefficient. can be 0.3 for example
+			let pointsToCalculatePerOnePixelLengthUnit = 1;
+
+			let dpi = 96;
+
+			let bezierPoints = [].concat(startPoint, controlPoints, endPoint);
+
+			// this.m_oFullTransform doesn't exist in that Graphics
+			// convert length to pixels length units
+			// https://www.figma.com/file/FT0m9czNuvK34TK227cQ6e/pointsToCalculatePerOnePixelLengthUnit?type=design&node-id=41-49&mode=design&t=pH5bF1EvWeWjzkS0-0
+			// Canvas resize is not considered!
+			let bezierPointsCopy = transformPoints(bezierPoints, dpi);
+
+			// As we calculate length of a curve as sum of control points there might be performance issue with
+			// high order curves because they have many control points and so length will be considered
+			// as long and there will be many control points
+			// add + 1 to avoid divide by 0 later when calculating interpolation step which is 1/interpolationPointsCount
+			interpolationPointsCount = pointsToCalculatePerOnePixelLengthUnit *
+				sumDistanceBetweenPoints(bezierPointsCopy) + 1;
+		} else {
+			interpolationPointsCount = 1000;
+		}
+
+		// this.p_width(lineWidth);
+		// this._s(); // beginPath
+		// this._m(startPoint.x, startPoint.y);
+
+		// in fact real pointsCount is larger by 1 point. bcs if pointsCount = 2 t will be 0, 1/2 and 1 - 3 times total
+		for (let t = 0; t <= 1; t+= 1/interpolationPointsCount) {
+			let point = computeBezierPoint(t, startPoint, controlPoints, endPoint);
+			this._l(point.x, point.y);
+		}
+
+		// https://github.com/ONLYOFFICE/sdkjs/blob/ebcb7401438a8260151cd96f7568d521e04f91e9/word/Drawing/Graphics.js#L438
+		// this._z(); // close path
+		// this.ds(); // draw stroke
+		// this._e(); // beginPath
+	};
+
 	// FONT
 	CGraphicsBase.prototype.FreeFont = function()
 	{
@@ -660,6 +804,10 @@
 	CGraphicsBase.prototype.isSupportTextDraw = function()
 	{
 		return true;
+	};
+	CGraphicsBase.prototype.isSupportTextOutline = function()
+	{
+		return false;
 	};
 
 	CGraphicsBase.prototype.FillText = function(x,y,text)

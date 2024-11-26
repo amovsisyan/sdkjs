@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -116,7 +116,8 @@ var c_oAscSelectionDialogType = {
 
 var c_oAscScrollType = {
   ScrollVertical: 1,
-  ScrollHorizontal: 2
+  ScrollHorizontal: 2,
+  ScrollInitRowsColsCount: 4
 };
 
 var c_oAscHyperlinkType = {
@@ -315,7 +316,8 @@ var c_oTargetType = {
   GroupCol: 17,
   TableSelectionChange: 18,
   Placeholder: 19,
-  ColumnRowHeaderMove: 20
+  ColumnRowHeaderMove: 20,
+  TraceDependents: 21
 };
 
 var c_oAscAutoFilterTypes = {
@@ -365,7 +367,8 @@ var c_oAscVisibleAreaOleEditorBorderColor = new CColor(32, 139, 255);
     sheetRename: 4,
     sheetChangeIndex: 5,
     markModifiedSearch: 6,
-    mergeRange: 7
+    mergeRange: 7,
+    removeRows: 8
   };
 
   var c_oAscLockNameFrozenPane = "frozenPane";
@@ -499,7 +502,8 @@ var c_oAscPopUpSelectorType = {
     text: 1,
     reference: 2,
     any: 3,
-    logical: 4
+    logical: 4,
+    array: 5
   };
 
   var c_oAscSelectionForCFType = {
@@ -634,6 +638,12 @@ var c_oAscPopUpSelectorType = {
   var c_oAscContextMenuTypes = {
     common       : 0, // default context menu
     changeSeries : 1  // fill right click mouse - series menu
+  };
+
+  var c_oAscCalcMode = {
+    auto: 0,
+    autoNoTable: 1,
+    manual: 2
   };
 
   //----------------------------------------------------------export----------------------------------------------------
@@ -1091,5 +1101,11 @@ var c_oAscPopUpSelectorType = {
   prot = c_oAscContextMenuTypes;
   prot['common'] = prot.common;
   prot['changeSeries'] = prot.changeSeries;
+
+  window['Asc']['c_oAscCalcMode'] = window['Asc'].c_oAscCalcMode = c_oAscCalcMode;
+  prot = c_oAscCalcMode;
+  prot['auto'] = prot.auto;
+  prot['autoNoTable'] = prot.autoNoTable;
+  prot['manual'] = prot.manual;
 
 })(window);

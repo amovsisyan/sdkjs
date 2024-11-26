@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -114,11 +114,13 @@
 		this.Size   = 12;
 		this.Bold   = false;
 		this.Italic = false;
+		this.Dpi    = 72;
 
 		this.SetUpName  = "";
 		this.SetUpIndex = -1;
 		this.SetUpSize  = 12;
 		this.SetUpStyle = -1;
+		this.SetUpDpi   = 72;
 
 		this.SetUpMatrix = new CMatrix();
 	}
@@ -537,6 +539,9 @@
 		this.len  = 0;
 		this.pos  = 0;
 
+		this.posAttrEnd  = 0;
+		this.attrQuote = 0x22;//"
+
 		if (true !== bIsNoInit)
 			this.Init();
 
@@ -906,6 +911,11 @@
 			}
 		};
 
+
+		this.SetXmlAttributeQuote = function(val)
+		{
+			this.attrQuote = val;
+		}
 		this.WriteXmlString = function(val)
 		{
 			var pCur = 0;
@@ -953,6 +963,114 @@
 					this.WriteUtf8Char(0x70);
 					this.WriteUtf8Char(0x6f);
 					this.WriteUtf8Char(0x73);
+					this.WriteUtf8Char(0x3b);
+					break;
+				case 0x3c:
+					//<
+					this.WriteUtf8Char(0x26);
+					this.WriteUtf8Char(0x6c);
+					this.WriteUtf8Char(0x74);
+					this.WriteUtf8Char(0x3b);
+					break;
+				case 0x3e:
+					//>
+					this.WriteUtf8Char(0x26);
+					this.WriteUtf8Char(0x67);
+					this.WriteUtf8Char(0x74);
+					this.WriteUtf8Char(0x3b);
+					break;
+				case 0x22:
+					//"
+					this.WriteUtf8Char(0x26);
+					this.WriteUtf8Char(0x71);
+					this.WriteUtf8Char(0x75);
+					this.WriteUtf8Char(0x6f);
+					this.WriteUtf8Char(0x74);
+					this.WriteUtf8Char(0x3b);
+					break;
+				default:
+					this.WriteUtf8Char(code);
+					break;
+			}
+		};
+		this.WriteXmlStringEncodeInSingleQuote = function(val)
+		{
+			var pCur = 0;
+			var pEnd = val.length;
+			while (pCur < pEnd)
+			{
+				var code = val.charCodeAt(pCur++);
+				if (code >= 0xD800 && code <= 0xDFFF && pCur < pEnd)
+				{
+					code = 0x10000 + (((code & 0x3FF) << 10) | (0x03FF & val.charCodeAt(pCur++)));
+				}
+				this.WriteXmlCharCodeInSingleQuote(code);
+			}
+		};
+		this.WriteXmlCharCodeInSingleQuote = function(code)
+		{
+			switch (code)
+			{
+				case 0x26:
+					//&
+					this.WriteUtf8Char(0x26);
+					this.WriteUtf8Char(0x61);
+					this.WriteUtf8Char(0x6d);
+					this.WriteUtf8Char(0x70);
+					this.WriteUtf8Char(0x3b);
+					break;
+				case 0x27:
+					//'
+					this.WriteUtf8Char(0x26);
+					this.WriteUtf8Char(0x61);
+					this.WriteUtf8Char(0x70);
+					this.WriteUtf8Char(0x6f);
+					this.WriteUtf8Char(0x73);
+					this.WriteUtf8Char(0x3b);
+					break;
+				case 0x3c:
+					//<
+					this.WriteUtf8Char(0x26);
+					this.WriteUtf8Char(0x6c);
+					this.WriteUtf8Char(0x74);
+					this.WriteUtf8Char(0x3b);
+					break;
+				case 0x3e:
+					//>
+					this.WriteUtf8Char(0x26);
+					this.WriteUtf8Char(0x67);
+					this.WriteUtf8Char(0x74);
+					this.WriteUtf8Char(0x3b);
+					break;
+				default:
+					this.WriteUtf8Char(code);
+					break;
+			}
+		};
+		this.WriteXmlStringEncodeInDoubleQuote = function(val)
+		{
+			var pCur = 0;
+			var pEnd = val.length;
+			while (pCur < pEnd)
+			{
+				var code = val.charCodeAt(pCur++);
+				if (code >= 0xD800 && code <= 0xDFFF && pCur < pEnd)
+				{
+					code = 0x10000 + (((code & 0x3FF) << 10) | (0x03FF & val.charCodeAt(pCur++)));
+				}
+				this.WriteXmlCharCodeInDoubleQuote(code);
+			}
+		};
+		this.WriteXmlCharCodeInDoubleQuote = function(code)
+		{
+			switch (code)
+			{
+				case 0x26:
+					//&
+					this.WriteUtf8Char(0x26);
+					this.WriteUtf8Char(0x61);
+					this.WriteUtf8Char(0x6d);
+					this.WriteUtf8Char(0x70);
 					this.WriteUtf8Char(0x3b);
 					break;
 				case 0x3c:
@@ -1031,6 +1149,19 @@
 			this.WriteXmlString(name);
 			this.WriteUtf8Char(0x3e);
 		};
+		this.WriteXmlNodeEndCheckEmpty = function(name)
+		{
+			if (this.posAttrEnd === this.GetCurPosition()) {
+				this.Seek(this.posAttrEnd - 1);
+				this.WriteUtf8Char(0x2f);
+				this.WriteUtf8Char(0x3e);
+			} else {
+				this.WriteUtf8Char(0x3c);
+				this.WriteUtf8Char(0x2f);
+				this.WriteXmlString(name);
+				this.WriteUtf8Char(0x3e);
+			}
+		};
 		this.WriteXmlNodeWithText = function(name, text)
 		{
 			this.WriteXmlNodeStart(name);
@@ -1045,23 +1176,33 @@
 				this.WriteUtf8Char(0x2f);
 			this.WriteUtf8Char(0x3e);
 		};
+		this.WriteXmlAttributesEndSavePos = function()
+		{
+			this.WriteUtf8Char(0x3e);
+			this.posAttrEnd = this.GetCurPosition();
+		};
 		this.WriteXmlAttributeString = function(name, val)
 		{
 			this.WriteUtf8Char(0x20);
 			this.WriteXmlString(name);
 			this.WriteUtf8Char(0x3d);
-			this.WriteUtf8Char(0x22);
+			this.WriteUtf8Char(this.attrQuote);
 			this.WriteXmlString(val.toString());
-			this.WriteUtf8Char(0x22);
+			this.WriteUtf8Char(this.attrQuote);
 		};
 		this.WriteXmlAttributeStringEncode = function(name, val)
 		{
 			this.WriteUtf8Char(0x20);
 			this.WriteXmlString(name);
 			this.WriteUtf8Char(0x3d);
-			this.WriteUtf8Char(0x22);
-			this.WriteXmlStringEncode(val.toString());
-			this.WriteUtf8Char(0x22);
+			this.WriteUtf8Char(this.attrQuote);
+			//todo remove if. save method to proerty like attrQuote
+			if (this.attrQuote === 0x22) {
+				this.WriteXmlStringEncodeInDoubleQuote(val.toString());
+			} else {
+				this.WriteXmlStringEncodeInSingleQuote(val.toString());
+			}
+			this.WriteUtf8Char(this.attrQuote);
 		};
 		this.WriteXmlAttributeBool = function(name, val)
 		{
@@ -1201,6 +1342,16 @@
 		{
 			if (null !== val && undefined !== val) {
 				this.WriteXmlAttributeDouble(name, val)
+			}
+		};
+		this.WriteXmlNullableAttributeAnyNumber = function(name, val)
+		{
+			if (null !== val && undefined !== val) {
+				if (val === Infinity) {
+					this.WriteXmlAttributeString(name, "INF");
+				} else {
+					this.WriteXmlAttributeDouble(name, val);
+				}
 			}
 		};
 		this.WriteXmlNullableAttributeNumber = function(name, val)
@@ -1542,6 +1693,8 @@
 		this.ctAnnotFieldDelete	= 165;
 		this.ctWidgetsInfo		= 166;
 
+		this.ctHeadings         = 169;
+
 		this.ctPageWidth  = 200;
 		this.ctPageHeight = 201;
 
@@ -1550,6 +1703,8 @@
 		this.ctDocumentEdit		= 204;
 		this.ctDocumentClose	= 205;
 		this.ctPageEdit			= 206;
+		this.ctPageClear		= 207;
+		this.ctPageRotate		= 208;
 
 		this.ctError = 255;
 	}
@@ -1574,6 +1729,31 @@
 	// 9 - sysDashDotDot
 	// 10- sysDot
 
+	//		visio types
+	// 		vsdxTransparent		: 11,
+	// 		vsdxSolid			: 12,
+	// 		vsdxDash			: 13,
+	// 		vsdxDot				: 14,
+	// 		vsdxDashDot			: 15,
+	// 		vsdxDashDotDot		: 16,
+	// 		vsdxDashDashDot		: 17,
+	// 		vsdxLongDashShortDash   		: 18,
+	// 		vsdxLongDashShortDashShortDash  : 19,
+	// 		vsdxHalfDash  			: 20,
+	// 		vsdxHalfDot				: 21,
+	// 		vsdxHalfDashDot			: 22,
+	// 		vsdxHalfDashDotDot		: 23,
+	// 		vsdxHalfDashDashDot   	: 24,
+	// 		vsdxHalfLongDashShortDash   		 : 25,
+	// 		vsdxHalfLongDashShortDashShortDash   : 26,
+	// 		vsdxDoubleDot   		: 27,
+	// 		vsdxDoubleDashDot   	: 28,
+	// 		vsdxDoubleDashDotDot   	: 29,
+	// 		vsdxDoubleDashDashDot   : 30,
+	// 		vsdxDoubleLongDashShortDash   			: 31,
+	// 		vsdxDoubleLongDashShortDashShortDash    : 32,
+	// 		vsdxHalfHalfDash   		: 33,
+
 	var DashPatternPresets = [
 		[4, 3],
 		[4, 3, 1, 3],
@@ -1585,7 +1765,33 @@
 		[3, 1],
 		[3, 1, 1, 1],
 		[3, 1, 1, 1, 1, 1],
-		[1, 1]
+		[1, 1],
+		// visio types
+		[0, 1], // vsdxTransparent
+		[1, 0], // vsdxSolid
+		[9, 3], // vsdxDash
+		[2, 3], // vsdxDot
+		[9, 3, 2, 3], // vsdxDashDot
+		[9, 3, 2, 3, 2, 3], // vsdxDashDotDot
+		[9, 3, 9, 3, 2, 3], // vsdxDashDashDot
+		[21, 3, 9, 3], // vsdxLongDashShortDash
+		[21, 3, 9, 3, 9, 3], // vsdxLongDashShortDashShortDash
+		[5, 1], // vsdxHalfDash
+		[2, 1], // vsdxHalfDot
+		[5, 1, 2, 1],// vsdxHalfDashDot
+		[5, 1, 2, 1, 2, 1],// vsdxHalfDashDotDot
+		[5, 1, 5, 1, 2, 1], // vsdxHalfDashDashDot
+		[11, 1, 5, 1], // vsdxHalfLongDashShortDash
+		[11, 1, 5, 1, 5, 1],		// vsdxHalfLongDashShortDashShortDash
+		[16, 8], // vsdxDoubleDash
+		[2, 7], // vsdxDoubleDot
+		[16, 8, 2, 8],// vsdxDoubleDashDot
+		[17, 7, 2, 7, 2, 7], // vsdxDoubleDashDotDot
+		[16, 7, 16, 7, 2, 7], // vsdxDoubleDashDashDot
+		[41, 7, 17, 7], // vsdxDoubleLongDashShortDash
+		[41, 7, 17, 7, 17, 7], // vsdxDoubleLongDashShortDashShortDash
+		[1, 0], // vsdxHalfHalfDash (in visio is solid)
+
 	];
 
 	function CMetafileFontPicker(manager)
@@ -3369,6 +3575,111 @@
 		}
 	};
 
+	function WriteHeadings(memory, headings)
+	{
+		if (!headings.length)
+			return;
+
+		memory.WriteByte(CommandType.ctHeadings);
+
+		let nStartPos = memory.GetCurPosition();
+		memory.Skip(4);
+
+		memory.WriteLong(headings.length);
+		for (let i = 0; i < headings.length; ++i)
+		{
+			memory.WriteLong(headings[i].lvl);
+			memory.WriteLong(headings[i].page);
+			memory.WriteDouble(headings[i].x);
+			memory.WriteDouble(headings[i].y);
+			memory.WriteString(headings[i].desc);
+		}
+
+		let nEndPos = memory.GetCurPosition();
+		memory.Seek(nStartPos);
+		memory.WriteLong(nEndPos - nStartPos);
+		memory.Seek(nEndPos);
+	}
+	
+	function AddHeading(headings, posXY, lvl, text)
+	{
+		if (!posXY)
+			return;
+		
+		let x = posXY.X;
+		let y = posXY.Y;
+		if (posXY.Transform)
+		{
+			x = posXY.Transform.TransformPointX(posXY.X, posXY.Y);
+			y = posXY.Transform.TransformPointY(posXY.X, posXY.Y);
+		}
+		
+		headings.push({
+			lvl  : lvl,
+			page : posXY.PageNum,
+			x    : x,
+			y    : y,
+			desc : text
+		});
+	}
+	
+	function GetHeadingsByHeadings(logicDocument)
+	{
+		let docOutline = logicDocument.GetDocumentOutline();
+		let isUse = docOutline.IsUse();
+		if (!isUse)
+			docOutline.SetUse(true);
+		
+		let count = docOutline.GetElementsCount();
+		let headings = [];
+		for (let i = 0; i < count; ++i)
+		{
+			let posXY = docOutline.GetDestinationXY(i);
+			AddHeading(headings, posXY, docOutline.GetLevel(i), docOutline.GetText(i));
+		}
+		
+		if (!isUse)
+			docOutline.SetUse(false);
+		
+		return headings;
+	}
+	
+	function GetHeadingsByBookmarks(logicDocument)
+	{
+		let bookmarkManager = logicDocument.GetBookmarksManager();
+		
+		let count = bookmarkManager.GetCount();
+		let headings = [];
+		for (let i = 0; i < count; ++i)
+		{
+			let name = bookmarkManager.GetName(i);
+			if (bookmarkManager.IsHiddenBookmark(name))
+				continue;
+			
+			let bookmarkStart = bookmarkManager.GetBookmarkStart(i);
+			if (!bookmarkStart)
+				continue;
+			
+			let posXY = bookmarkStart.GetDestinationXY();
+			AddHeading(headings, posXY, 0, name);
+		}
+		
+		return headings;
+	}
+	CDocumentRenderer.prototype.AddHeadings = function(logicDocument, byHeadings)
+	{
+		if (!logicDocument)
+			return;
+		
+		let headings;
+		if (byHeadings)
+			headings = GetHeadingsByHeadings(logicDocument);
+		else
+			headings = GetHeadingsByBookmarks(logicDocument);
+		
+		WriteHeadings(this.Memory, headings);
+	};
+
 	var MATRIX_ORDER_PREPEND = 0;
 	var MATRIX_ORDER_APPEND  = 1;
 
@@ -3519,6 +3830,12 @@
 		{
 			return x * this.shy + y * this.sy + this.ty;
 		},
+		TransformPoint : function(x, y)
+		{
+			const transformedX = x * this.sx + y * this.shx + this.tx;
+			const transformedY = x * this.shy + y * this.sy + this.ty;
+			return { x: transformedX, y: transformedY };
+		},
 		// calculate rotate angle
 		GetRotation     : function()
 		{
@@ -3600,6 +3917,18 @@
 			var x2 = this.TransformPointX(1, 1);
 			var y2 = this.TransformPointY(1, 1);
 			return Math.sqrt(((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1))/2);
+		},
+
+		exportToObject : function()
+		{
+			return {
+				"SX": this.sx,
+				"SHX": this.shx,
+				"SHY": this.shy,
+				"SY": this.sy,
+				"TX": this.tx,
+				"TY": this.ty
+			};
 		}
 	};
 
@@ -4028,6 +4357,7 @@
 	window['AscCommon'].CFontSetup               = CFontSetup;
 	window['AscCommon'].CGrState                 = CGrState;
 	window['AscCommon'].CMemory                  = CMemory;
+	window['AscCommon'].CMetafile				 = CMetafile;
 	window['AscCommon'].CDocumentRenderer        = CDocumentRenderer;
 	window['AscCommon'].MATRIX_ORDER_PREPEND     = MATRIX_ORDER_PREPEND;
 	window['AscCommon'].MATRIX_ORDER_APPEND      = MATRIX_ORDER_APPEND;

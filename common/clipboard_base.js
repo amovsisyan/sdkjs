@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -54,7 +54,8 @@
 		Text        : 1,
 		Html        : 2,
 		Internal    : 4,
-		HtmlElement : 8
+		HtmlElement : 8,
+		Rtf         : 16
 	};
 	var c_oClipboardPastedFrom       = {
 		Word        : 0,
@@ -105,6 +106,7 @@
 
 		this.bSaveFormat = false; //для вставки, допустим, из плагина необходимо чтобы при добавлении текста в шейп сохранялось форматирование
 		this.bCut = false;
+		this.forceCutSelection = null;
 
 		this.pastedFrom = null;
 
@@ -245,8 +247,6 @@
 				if (!_clipboard || !_clipboard.getData)
 					return false;
 
-				//window['AscCommon'].g_clipboardBase.rtf = this.ClosureParams.getData("text/rtf");
-
 				var isDisableRawPaste = false;
 				if (true === AscCommon["isDisableRawPaste"])
 				{
@@ -262,6 +262,16 @@
 					g_clipboardBase.Paste_End();
 					return false;
 				}
+
+
+				//while commented rtf paste. reading RTF with pictures takes a very long time.
+				// var _rtf_format = this.ClosureParams.getData("text/rtf");
+				// if (_rtf_format)
+				// {
+				// 	this.Api.asc_PasteData(AscCommon.c_oAscClipboardDataFormat.Rtf, _rtf_format);
+				// 	g_clipboardBase.Paste_End();
+				// 	return false;
+				// }
 
 				var _html_format = isDisableRawPaste ? "" : this.ClosureParams.getData("text/html");
 				if (_html_format && _html_format != "")
@@ -950,9 +960,9 @@
 					this.Api.asc_CheckCopy(copy_data, c_oAscClipboardDataFormat.Text | c_oAscClipboardDataFormat.Html | c_oAscClipboardDataFormat.Internal);
 
 					const data = [new ClipboardItem({
-						["text/plain"]    : new Blob([copy_data.data[c_oAscClipboardDataFormat.Text]], {type: "text/plain"}),
-						["text/html"]     : new Blob([copy_data.data[c_oAscClipboardDataFormat.Html]], {type: "text/html"}),
-						["web text/x-custom"] : new Blob(["asc_internalData2;" + copy_data.data[c_oAscClipboardDataFormat.Internal]], {type: "web text/x-custom"})
+						"text/plain"        : new Blob([copy_data.data[c_oAscClipboardDataFormat.Text]], {type: "text/plain"}),
+						"text/html"         : new Blob([copy_data.data[c_oAscClipboardDataFormat.Html]], {type: "text/html"}),
+						"web text/x-custom" : new Blob(["asc_internalData2;" + copy_data.data[c_oAscClipboardDataFormat.Internal]], {type: "web text/x-custom"})
 					})];
 
 					navigator.clipboard.write(data).then(function(){},function(){});
@@ -1043,6 +1053,15 @@
 
 		Button_Copy : function()
 		{
+			if (window["AscDesktopEditor"])
+			{
+				window["asc_desktop_copypaste"](this.Api, "Copy");
+				return true;
+			}
+
+			if (window["NATIVE_EDITOR_ENJINE"])
+				return false;
+			
 			if (this.isUseNewCopy())
 			{
 				if (this.Button_Copy_New())
@@ -1079,6 +1098,15 @@
 
 		Button_Cut : function()
 		{
+			if (window["AscDesktopEditor"])
+			{
+				window["asc_desktop_copypaste"](this.Api, "Cut");
+				return true;
+			}
+
+			if (window["NATIVE_EDITOR_ENJINE"])
+				return false;
+			
 			if (this.isUseNewCopy())
 			{
 				if (this.Button_Copy_New(true))
@@ -1119,6 +1147,15 @@
 
 		Button_Paste : function()
 		{
+			if (window["AscDesktopEditor"])
+			{
+				window["asc_desktop_copypaste"](this.Api, "Paste");
+				return true;
+			}
+
+			if (window["NATIVE_EDITOR_ENJINE"])
+				return false;
+			
 			if (this.isUseNewPaste())
 			{
 				if (this.Button_Paste_New())
@@ -1146,19 +1183,29 @@
 
 			if (!_ret && null != this.LastCopyBinary)
 			{
-				var _data = null;
 				var _isInternal = false;
+				var _internal_data = null;
+				var _text_data = null;
 				for (var i = 0; i < this.LastCopyBinary.length; i++)
 				{
-					if (c_oAscClipboardDataFormat.Internal == this.LastCopyBinary[i].type)
+					if (c_oAscClipboardDataFormat.Internal === this.LastCopyBinary[i].type)
 					{
-						this.Api.asc_PasteData(AscCommon.c_oAscClipboardDataFormat.Internal, this.LastCopyBinary[i].data);
+						_internal_data = this.LastCopyBinary[i].data;
 						_isInternal = true;
 					}
+					else if (c_oAscClipboardDataFormat.Text === this.LastCopyBinary[i].type)
+					{
+						_text_data = this.LastCopyBinary[i].data;
+					}
 				}
-
-				if (!_isInternal && this.LastCopyBinary.length > 0)
-					this.Api.asc_PasteData(this.LastCopyBinary[0].type, this.LastCopyBinary[0].data);
+				if (_isInternal)
+				{
+					this.Api.asc_PasteData(AscCommon.c_oAscClipboardDataFormat.Internal, _internal_data, null, _text_data);
+				}
+				else if (this.LastCopyBinary.length > 0)
+				{
+					this.Api.asc_PasteData(this.LastCopyBinary[0].type, this.LastCopyBinary[0].data, null, _text_data);
+				}
 			}
 			return _ret;
 		},
@@ -1505,6 +1552,4 @@ window["asc_desktop_copypaste"] = function(_api, _method)
 	if (!bIsFocus)
 		_api.asc_enableKeyEvents(true);
 	window["AscDesktopEditor"][_method]();
-	if (!bIsFocus)
-		_api.asc_enableKeyEvents(false);
 };

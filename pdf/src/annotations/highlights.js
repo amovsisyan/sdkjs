@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2019
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -12,7 +12,7 @@
  * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR  PURPOSE. For
  * details, see the GNU AGPL at: http://www.gnu.org/licenses/agpl-3.0.html
  *
- * You can contact Ascensio System SIA at 20A-12 Ernesta Birznieka-Upisha
+ * You can contact Ascensio System SIA at 20A-6 Ernesta Birznieka-Upish
  * street, Riga, Latvia, EU, LV-1050.
  *
  * The  interactive user interfaces in modified source and object code versions
@@ -40,7 +40,7 @@
     {
         AscPDF.CAnnotationBase.call(this, sName, nType, nPage, aRect, oDoc);
 
-        this._quads         = undefined;
+        this._quads         = [];
         this._richContents  = undefined;
         this._rotate        = undefined;
         this._width         = undefined;
@@ -48,76 +48,40 @@
     CAnnotationTextMarkup.prototype = Object.create(AscPDF.CAnnotationBase.prototype);
 	CAnnotationTextMarkup.prototype.constructor = CAnnotationTextMarkup;
 
-    CAnnotationTextMarkup.prototype.getObjectType = function() {
-        return -1;
+    CAnnotationTextMarkup.prototype.IsTextMarkup = function() {
+        return true;
     };
 
-    CAnnotationTextMarkup.prototype.SetQuads = function(aQuads) {
-        this._quads = aQuads;
+    CAnnotationTextMarkup.prototype.SetQuads = function(aFullQuads) {
+        let oThis = this;
+        aFullQuads.forEach(function(aQuads) {
+            oThis.AddQuads(aQuads);
+        });
     };
     CAnnotationTextMarkup.prototype.GetQuads = function() {
         return this._quads;
     };
-    CAnnotationTextMarkup.prototype.SetWidth = function(nWidth) {
-        this._width = nWidth;
+    CAnnotationTextMarkup.prototype.AddQuads = function(aQuads) {
+        AscCommon.History.Add(new CChangesPDFAnnotQuads(this, this._quads.length, aQuads, true));
+        this._quads.push(aQuads);
+        this.SetNeedRecalc(true);
     };
-    CAnnotationTextMarkup.prototype.GetWidth = function() {
-        return this._width;
-    }; 
-    CAnnotationTextMarkup.prototype.IsTextMarkup = function() {
-        return true;
-    };
+    
     CAnnotationTextMarkup.prototype.AddToRedraw = function() {
         let oViewer = editor.getDocumentRenderer();
-        if (oViewer.pagesInfo.pages[this.GetPage()])
-            oViewer.pagesInfo.pages[this.GetPage()].needRedrawHighlights = true;
-    };
-    CAnnotationTextMarkup.prototype.IsInQuads = function(x, y) {
-        let oOverlayCtx = editor.getDocumentRenderer().overlay.m_oContext;
-        let aQuads      = this.GetQuads();
+        let nPage   = this.GetPage();
         
-        for (let i = 0; i < aQuads.length; i++) {
-            let aPoints = aQuads[i];
-
-            let oPoint1 = {
-                x: aPoints[0],
-                y: aPoints[1]
+        function setRedrawPageOnRepaint() {
+            if (oViewer.pagesInfo.pages[nPage]) {
+                oViewer.pagesInfo.pages[nPage].needRedrawMarkups = true;
+                oViewer.thumbnails && oViewer.thumbnails._repaintPage(nPage);
             }
-            let oPoint2 = {
-                x: aPoints[2],
-                y: aPoints[3]
-            }
-
-            let oPoint3 = {
-                x: aPoints[4],
-                y: aPoints[5]
-            }
-            let oPoint4 = {
-                x: aPoints[6],
-                y: aPoints[7]
-            }
-
-            let X1 = oPoint1.x;
-            let Y1 = oPoint1.y;
-            let X2 = oPoint2.x;
-            let Y2 = oPoint2.y;
-            let X3 = oPoint3.x;
-            let Y3 = oPoint3.y;
-            let X4 = oPoint4.x;
-            let Y4 = oPoint4.y;
-
-            oOverlayCtx.beginPath();
-            oOverlayCtx.moveTo(X1, Y1);
-            oOverlayCtx.lineTo(X2, Y2);
-            oOverlayCtx.lineTo(X4, Y4);
-            oOverlayCtx.lineTo(X3, Y3);
-            oOverlayCtx.closePath();
-
-            if (oOverlayCtx.isPointInPath(x, y))
-                return true;
         }
 
-        return false;
+        oViewer.paint(setRedrawPageOnRepaint);
+    };
+    CAnnotationTextMarkup.prototype.IsInQuads = function(x, y) {
+        return IsInQuads(this.GetQuads(), x, y);
     };
     CAnnotationTextMarkup.prototype.DrawSelected = function(overlay) {
         overlay.m_oContext.lineWidth    = 3;
@@ -207,8 +171,8 @@
     {
         CAnnotationTextMarkup.call(this, sName, AscPDF.ANNOTATIONS_TYPES.Highlight, nPage, aRect, oDoc);
     }
-    CAnnotationHighlight.prototype = Object.create(CAnnotationTextMarkup.prototype);
-	CAnnotationHighlight.prototype.constructor = CAnnotationHighlight;
+    CAnnotationHighlight.prototype.constructor = CAnnotationHighlight;
+    AscFormat.InitClass(CAnnotationHighlight, CAnnotationTextMarkup, AscDFH.historyitem_type_Pdf_Annot_Highlight);
 
     CAnnotationHighlight.prototype.IsHighlight = function() {
         return true;
@@ -241,16 +205,13 @@
                 y: aPoints[7]
             }
 
-            let dx1 = oPoint2.x - oPoint1.x;
-            let dy1 = oPoint2.y - oPoint1.y;
-            let dx2 = oPoint4.x - oPoint3.x;
-            let dy2 = oPoint4.y - oPoint3.y;
-            let angle1          = Math.atan2(dy1, dx1);
-            let angle2          = Math.atan2(dy2, dx2);
+            let dx = oPoint2.x - oPoint1.x;
+            let dy = oPoint2.y - oPoint1.y;
+            let angle1          = Math.atan2(dy, dx);
             let rotationAngle   = angle1;
 
             oGraphicsPDF.SetGlobalAlpha(this.GetOpacity());
-            AscPDF.startMultiplyMode(oGraphicsPDF.context);
+            AscPDF.startMultiplyMode(oGraphicsPDF.GetContext());
 
             oGraphicsPDF.BeginPath();
             oGraphicsPDF.SetFillStyle(oRGBFill.r, oRGBFill.g, oRGBFill.b);
@@ -271,8 +232,11 @@
             }
 
             oGraphicsPDF.Fill();
-            AscPDF.endMultiplyMode(oGraphicsPDF.context);
+            AscPDF.endMultiplyMode(oGraphicsPDF.GetContext());
         }
+
+        let aUnitedRegion = this.GetUnitedRegion();
+        oGraphicsPDF.DrawLockObjectRect(this.Lock.Get_Type(), aUnitedRegion.regions);
     };
         
     /**
@@ -283,8 +247,8 @@
     {
         CAnnotationTextMarkup.call(this, sName, AscPDF.ANNOTATIONS_TYPES.Underline, nPage, aRect, oDoc);
     }
-    CAnnotationUnderline.prototype = Object.create(CAnnotationTextMarkup.prototype);
-	CAnnotationUnderline.prototype.constructor = CAnnotationUnderline;
+    CAnnotationUnderline.prototype.constructor = CAnnotationUnderline;
+    AscFormat.InitClass(CAnnotationUnderline, CAnnotationTextMarkup, AscDFH.historyitem_type_Pdf_Annot_Underline);
 
     CAnnotationUnderline.prototype.Draw = function(oGraphicsPDF) {
         if (this.IsHidden() == true)
@@ -353,6 +317,9 @@
             
             oGraphicsPDF.Stroke();
         }
+
+        let aUnitedRegion = this.GetUnitedRegion();
+        oGraphicsPDF.DrawLockObjectRect(this.Lock.Get_Type(), aUnitedRegion.regions);
     };
     
     /**
@@ -363,8 +330,8 @@
     {
         CAnnotationTextMarkup.call(this, sName, AscPDF.ANNOTATIONS_TYPES.Strikeout, nPage, aRect, oDoc);
     }
-    CAnnotationStrikeout.prototype = Object.create(CAnnotationTextMarkup.prototype);
-	CAnnotationStrikeout.prototype.constructor = CAnnotationStrikeout;
+    CAnnotationStrikeout.prototype.constructor = CAnnotationStrikeout;
+    AscFormat.InitClass(CAnnotationStrikeout, CAnnotationTextMarkup, AscDFH.historyitem_type_Pdf_Annot_Strikeout);
 
     CAnnotationStrikeout.prototype.Draw = function(oGraphicsPDF) {
         if (this.IsHidden() == true)
@@ -427,6 +394,9 @@
             
             oGraphicsPDF.Stroke();
         }
+
+        let aUnitedRegion = this.GetUnitedRegion();
+        oGraphicsPDF.DrawLockObjectRect(this.Lock.Get_Type(), aUnitedRegion.regions);
     };
 
     /**
@@ -437,8 +407,8 @@
     {
         CAnnotationTextMarkup.call(this, sName, AscPDF.ANNOTATIONS_TYPES.Squiggly, nPage, aRect, oDoc);
     }
-    CAnnotationSquiggly.prototype = Object.create(CAnnotationTextMarkup.prototype);
-	CAnnotationSquiggly.prototype.constructor = CAnnotationSquiggly;
+    CAnnotationSquiggly.prototype.constructor = CAnnotationSquiggly;
+    AscFormat.InitClass(CAnnotationSquiggly, CAnnotationTextMarkup, AscDFH.historyitem_type_Pdf_Annot_Squiggly);
 
     CAnnotationSquiggly.prototype.Draw = function(oGraphicsPDF) {
         if (this.IsHidden() == true)
@@ -507,6 +477,9 @@
             
             oGraphicsPDF.Stroke();
         }
+
+        let aUnitedRegion = this.GetUnitedRegion();
+        oGraphicsPDF.DrawLockObjectRect(this.Lock.Get_Type(), aUnitedRegion.regions);
     };
 
     let CARET_SYMBOL = {
@@ -524,8 +497,8 @@
         CAnnotationTextMarkup.call(this, sName, AscPDF.ANNOTATIONS_TYPES.Caret, nPage, aRect, oDoc);
         this._caretSymbol = CARET_SYMBOL.None;
     }
-    CAnnotationCaret.prototype = Object.create(CAnnotationTextMarkup.prototype);
-	CAnnotationCaret.prototype.constructor = CAnnotationCaret;
+    CAnnotationCaret.prototype.constructor = CAnnotationCaret;
+    AscFormat.InitClass(CAnnotationCaret, CAnnotationTextMarkup, AscDFH.historyitem_type_Pdf_Annot_Caret);
 
     CAnnotationCaret.prototype.Draw = function(oGraphicsPDF) {
         if (this.IsHidden() == true)
@@ -594,6 +567,9 @@
             
             oGraphicsPDF.Stroke();
         }
+
+        let aUnitedRegion = this.GetUnitedRegion();
+        oGraphicsPDF.DrawLockObjectRect(this.Lock.Get_Type(), aUnitedRegion.regions);
     };
     CAnnotationCaret.prototype.SetCaretSymbol = function(nType) {
         this._caretSymbol = nType;
@@ -673,8 +649,9 @@
 
     function fillRegion(polygon, overlay, pageIndex)
     {
-        let oViewer = editor.getDocumentRenderer();
-        let nScale  = AscCommon.AscBrowser.retinaPixelRatio * oViewer.zoom * (96 / oViewer.file.pages[pageIndex].Dpi);
+        let oCtx    = overlay.m_oContext;
+        let oViewer = Asc.editor.getDocumentRenderer();
+        let nScale  = oViewer.zoom * oViewer.getDrawingPageScale(pageIndex) * AscCommon.AscBrowser.retinaPixelRatio;
 
         let xCenter = oViewer.width >> 1;
         if (oViewer.documentWidth > oViewer.width)
@@ -688,8 +665,11 @@
         let indLeft = ((xCenter * AscCommon.AscBrowser.retinaPixelRatio) >> 0) - (w >> 1);
         let indTop  = ((page.Y - yPos) * AscCommon.AscBrowser.retinaPixelRatio) >> 0;
 
+        if (true == oViewer.isLandscapePage(pageIndex))
+            indLeft = indLeft + (w - h) / 2;
+
         // рисуем всегда в пиксельной сетке. при наклонных линиях - +- 1 пиксел - ничего страшного
-        let pointOffset = (overlay.m_oContext.lineWidth & 1) ? 0.5 : 0;
+        let pointOffset = (oCtx.lineWidth & 1) ? 0.5 : 0;
         
         for (let i = 0, countPolygons = polygon.regions.length; i < countPolygons; i++)
         {
@@ -702,7 +682,7 @@
             let X = indLeft + region[0][0] * nScale;
             let Y = indTop + region[0][1] * nScale;
 
-            overlay.m_oContext.moveTo((X >> 0) + pointOffset, (Y >> 0) + pointOffset);
+            oCtx.moveTo((X >> 0) + pointOffset, (Y >> 0) + pointOffset);
 
             overlay.CheckPoint1(X, Y);
             overlay.CheckPoint2(X, Y);
@@ -712,12 +692,12 @@
                 X = indLeft + region[j][0] * nScale;
                 Y = indTop + region[j][1] * nScale;;
 
-                overlay.m_oContext.lineTo((X >> 0) + pointOffset, (Y >> 0) + pointOffset);
+                oCtx.lineTo((X >> 0) + pointOffset, (Y >> 0) + pointOffset);
                 overlay.CheckPoint1(X, Y);
                 overlay.CheckPoint2(X, Y);
             }
 
-            overlay.m_oContext.closePath();
+            oCtx.closePath();
         }
     }
     function getMinRect(aPoints) {
@@ -749,11 +729,63 @@
         return [xMin, yMin, xMax, yMax];
     }
 
+    function IsInQuads(aQuads, x, y) {
+        let oCtx = Asc.editor.getDocumentRenderer().overlay.m_oContext;
+        oCtx.save();
+        oCtx.setTransform(1, 0, 0, 1, 0, 0);
+
+        let isInQuads = false; 
+        for (let i = 0; i < aQuads.length; i++) {
+            let aPoints = aQuads[i];
+
+            let oPoint1 = {
+                x: aPoints[0],
+                y: aPoints[1]
+            }
+            let oPoint2 = {
+                x: aPoints[2],
+                y: aPoints[3]
+            }
+
+            let oPoint3 = {
+                x: aPoints[4],
+                y: aPoints[5]
+            }
+            let oPoint4 = {
+                x: aPoints[6],
+                y: aPoints[7]
+            }
+
+            let X1 = oPoint1.x;
+            let Y1 = oPoint1.y;
+            let X2 = oPoint2.x;
+            let Y2 = oPoint2.y;
+            let X3 = oPoint3.x;
+            let Y3 = oPoint3.y;
+            let X4 = oPoint4.x;
+            let Y4 = oPoint4.y;
+
+            oCtx.beginPath();
+            oCtx.moveTo(X1, Y1);
+            oCtx.lineTo(X2, Y2);
+            oCtx.lineTo(X4, Y4);
+            oCtx.lineTo(X3, Y3);
+            oCtx.closePath();
+
+            if (oCtx.isPointInPath(x, y))
+                isInQuads = true;
+        }
+
+        oCtx.restore();
+        return isInQuads;
+    }
+
     window["AscPDF"].CAnnotationTextMarkup  = CAnnotationTextMarkup;
     window["AscPDF"].CAnnotationHighlight   = CAnnotationHighlight;
     window["AscPDF"].CAnnotationUnderline   = CAnnotationUnderline;
     window["AscPDF"].CAnnotationStrikeout   = CAnnotationStrikeout;
     window["AscPDF"].CAnnotationSquiggly    = CAnnotationSquiggly;
     window["AscPDF"].CAnnotationCaret       = CAnnotationCaret;
+    window["AscPDF"].IsInQuads              = IsInQuads;
 })();
 

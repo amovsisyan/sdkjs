@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -53,6 +53,9 @@ function (window, undefined) {
 	window['AscCH'].historyitem_Workbook_Date1904 = 11;
 	window['AscCH'].historyitem_Workbook_ChangeExternalReference = 12;
 	window['AscCH'].historyitem_Workbook_TimelineCacheDelete = 13;
+	window['AscCH'].historyitem_Workbook_CalcPr_iterate = 14;
+	window['AscCH'].historyitem_Workbook_CalcPr_iterateCount = 15;
+	window['AscCH'].historyitem_Workbook_CalcPr_iterateDelta = 16;
 
 	window['AscCH'].historyitem_Worksheet_RemoveCell = 1;
 	window['AscCH'].historyitem_Worksheet_RemoveRows = 2;
@@ -76,6 +79,7 @@ function (window, undefined) {
 	window['AscCH'].historyitem_Worksheet_SetTabColor = 27;
 	window['AscCH'].historyitem_Worksheet_RowHide = 28;
 // Frozen cell
+	window['AscCH'].historyitem_Worksheet_SetRightToLeft = 29;
 	window['AscCH'].historyitem_Worksheet_ChangeFrozenCell = 30;
 	window['AscCH'].historyitem_Worksheet_SetDisplayGridlines = 31;
 	window['AscCH'].historyitem_Worksheet_SetDisplayHeadings = 32;
@@ -264,6 +268,17 @@ function (window, undefined) {
 	window['AscCH'].historyitem_PivotTable_FormatsRemoveField = 63;
 	window['AscCH'].historyitem_PivotTable_FormatsAddRowField = 64;
 	window['AscCH'].historyitem_PivotTable_FormatsAddColField = 65;
+	window['AscCH'].historyitem_PivotTable_SetGrandTotalCaption = 66;
+	window['AscCH'].historyitem_PivotTable_PivotFieldSetSubtotalCaption = 67;
+	window['AscCH'].historyitem_PivotTable_SetRowHeaderCaption = 68;
+	window['AscCH'].historyitem_PivotTable_SetColHeaderCaption = 69;
+	window['AscCH'].historyitem_PivotTable_SetDataCaption = 70;
+	window['AscCH'].historyitem_PivotTable_PivotFieldItemSetName = 71;
+	window['AscCH'].historyitem_PivotTable_PivotFieldMoveItem = 72;
+
+	window['AscCH'].historyitem_PivotCache_SetCalculatedItems = 1;
+
+	window['AscCH'].historyitem_PivotCacheFields_SetCacheField = 1;
 
 	window['AscCH'].historyitem_SharedFormula_ChangeFormula = 1;
 	window['AscCH'].historyitem_SharedFormula_ChangeShared = 2;
@@ -570,9 +585,13 @@ CHistory.prototype.RedoAdd = function(oRedoObjectParam, Class, Type, sheetid, ra
 					if(changedObject){
 						var fChangesClass = AscDFH.changesFactory[nChangesType];
 						if (fChangesClass){
+							let color = null;
+							if (AscCommon.CollaborativeEditing.isCollaboration())
+								color = new CDocumentColor(255, 255, 255);
+							
 							var oChange = new fChangesClass(changedObject);
 							oChange.ReadFromBinary(Data.oBinaryReader);
-							oChange.Load(new CDocumentColor(255, 255, 255));
+							oChange.Load(color);
 						}
 					}
 				}
@@ -649,6 +668,18 @@ CHistory.prototype.UndoRedoEnd = function (Point, oRedoObjectParam, bUndo) {
 
 		//important after updateWorksheetByModel
 		t.workbook.oApi.updatePivotTables();
+
+		for (i in oRedoObjectParam.onSlicerCache) {
+			const slicers = t.workbook.getSlicersByCacheName(i);
+			if (slicers) {
+				for (let i = 0; i < slicers.length; i++) {
+					oRedoObjectParam.onSlicer[slicers[i].name] = true;
+				}
+			}
+		}
+		for (i in oRedoObjectParam.onSlicer) {
+			this.workbook.onSlicerUpdate(i);
+		}
 
 		if(!bCoaut)
 		{
@@ -810,6 +841,20 @@ CHistory.prototype._addRedoObjectParam = function (oRedoObjectParam, Point) {
 		oRedoObjectParam.oChangeWorksheetUpdate[Point.SheetId] = Point.SheetId;
 	else if(AscCommonExcel.g_oUndoRedoWorkbook === Point.Class && AscCH.historyitem_Workbook_ChangeColorScheme === Point.Type)
 		oRedoObjectParam.bChangeColorScheme = true;
+	else if(AscCommonExcel.g_oUndoRedoSlicer === Point.Class) {
+		const cacheChange = AscCH.historyitem_Slicer_SetCacheSortOrder === Point.Type ||
+			AscCH.historyitem_Slicer_SetCacheCustomListSort === Point.Type ||
+			AscCH.historyitem_Slicer_SetCacheCrossFilter === Point.Type ||
+			AscCH.historyitem_Slicer_SetCacheHideItemsWithNoData === Point.Type ||
+			AscCH.historyitem_Slicer_SetCacheData === Point.Type ||
+			AscCH.historyitem_Slicer_SetCacheMovePivot === Point.Type ||
+			AscCH.historyitem_Slicer_SetCacheCopySheet === Point.Type;
+		if (cacheChange) {
+			oRedoObjectParam.onSlicerCache[Point.Data.name] = true;
+		} else {
+			oRedoObjectParam.onSlicer[Point.Data.name] = true;
+		}
+	}
 
 	if (null != Point.SheetId) {
 		oRedoObjectParam.activeSheet = Point.SheetId;

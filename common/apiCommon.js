@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -223,11 +223,11 @@ function (window, undefined) {
 				const description = paramMatch[6] || '';
 	
 				params.push({
-					type,
-					name,
-					isOptional,
-					defaultValue,
-					description
+					type: type,
+					name: name,
+					isOptional: isOptional,
+					defaultValue: defaultValue,
+					description: description
 				});
 			}
 	
@@ -242,11 +242,11 @@ function (window, undefined) {
 				const description = propertyMatch[6] || '';
 	
 				properties.push({
-					type,
-					name,
-					isOptional,
-					defaultValue,
-					description
+					type: type,
+					name: name,
+					isOptional: isOptional,
+					defaultValue: defaultValue,
+					description: description
 				});
 			}
 	
@@ -260,6 +260,21 @@ function (window, undefined) {
 					description: returnMatch[2]
 				};
 			}
+
+			const regex = /@nameLocale\s+{([^}]+)}/;
+			const nameMatch = regex.exec(commentBlock);
+			const nameLocale = {};
+
+			if (nameMatch && nameMatch[1]) {
+				const localesAndNames = nameMatch[1].split(/\s*\|\s*/);
+				localesAndNames.forEach(function (localeAndName) {
+					const splitLocaleAndName = localeAndName.split(':');
+					const locale = splitLocaleAndName[0];
+					const name = splitLocaleAndName[1];
+					nameLocale[locale.trim()] = name.trim();
+				});
+			}
+
 	
 			// Parsing function description
 			const descriptionRegex = /\*\s*(.*)/g;
@@ -270,6 +285,7 @@ function (window, undefined) {
 			parsedData.properties = properties;
 			parsedData.returnInfo = returnInfo;
 			parsedData.description = description;
+			parsedData.nameLocale = nameLocale;
 			result.push(parsedData);
 		}
 	
@@ -1051,6 +1067,8 @@ function (window, undefined) {
 		this.depthAxes = [];
 
 		this.view3D = null;
+
+		this.displayTrendlinesEquation = false;
 	}
 
 	//TODO:remove this---------------------
@@ -1276,6 +1294,9 @@ function (window, undefined) {
 			return false;
 		}
 		if (this.view3D && oPr.view3D && !this.view3D.isEqual(oPr.view3D)) {
+			return false;
+		}
+		if(this.displayTrendlinesEquation !== oPr.displayTrendlinesEquation) {
 			return false;
 		}
 		return true;
@@ -1641,6 +1662,12 @@ function (window, undefined) {
 			this.chartSpace.onDataUpdate();
 		}
 	};
+	asc_ChartSettings.prototype.getDisplayTrendlinesEquation = function() {
+		return this.displayTrendlinesEquation;
+	};
+	asc_ChartSettings.prototype.putDisplayTrendlinesEquation = function(v) {
+		this.displayTrendlinesEquation = v;
+	};
 
 	/** @constructor */
 	function asc_CRect(x, y, width, height) {
@@ -1786,6 +1813,13 @@ function (window, undefined) {
 
 	CColor.prototype.getColorName = function () {
 		return (new asc_CColor(this.r, this.g, this.b)).asc_getName();
+	};
+
+	CColor.prototype.getAscColor = function () {
+		return (new asc_CColor(this.r, this.g, this.b));
+	};
+	CColor.prototype.fromAscColor = function (oAscColor) {
+		return new CColor(oAscColor.r, oAscColor.g, oAscColor.b);
 	};
 
 	/** @constructor */
@@ -3062,6 +3096,7 @@ function (window, undefined) {
 		this.paddings = null;
 		this.canFill = true;
 		this.canChangeArrows = false;
+		this.canEditText = false; // used in pdf editor
 		this.bFromChart = false;
 		this.bFromGroup = false;
 		this.bFromImage = false;
@@ -3332,6 +3367,70 @@ function (window, undefined) {
 	asc_CShapeProperty.prototype.asc_getIsMotionPath = function () {
 		return this.isMotionPath;
 	};
+	asc_CShapeProperty.prototype.asc_getCanEditText = function () {
+		return this.canEditText;
+	};
+	asc_CShapeProperty.prototype.asc_setCanEditText = function (v) {
+		this.canEditText = v;
+	};
+
+	/** @constructor */
+	function asc_CAnnotProperty() {
+		this.type				= null; // custom
+		this.fill				= null;
+		this.stroke				= null;
+		this.canFill			= true;
+		this.canChangeArrows	= true;
+		this.Locked				= false;
+		this.subject			= undefined;
+		this.canEditText		= false;
+
+		this.Position = undefined;
+	}
+
+	asc_CAnnotProperty.prototype.constructor = asc_CAnnotProperty;
+	asc_CAnnotProperty.prototype.asc_getType = function () {
+		return this.type;
+	};
+	asc_CAnnotProperty.prototype.asc_putType = function (v) {
+		this.type = v;
+	};
+	asc_CAnnotProperty.prototype.asc_getFill = function () {
+		return this.fill;
+	};
+	asc_CAnnotProperty.prototype.asc_putFill = function (v) {
+		this.fill = v;
+	};
+	asc_CAnnotProperty.prototype.asc_getStroke = function () {
+		return this.stroke;
+	};
+	asc_CAnnotProperty.prototype.asc_putStroke = function (v) {
+		this.stroke = v;
+	};
+	asc_CAnnotProperty.prototype.asc_getCanFill = function () {
+		return this.canFill;
+	};
+	asc_CAnnotProperty.prototype.asc_putCanFill = function (v) {
+		this.canFill = v;
+	};
+	asc_CAnnotProperty.prototype.asc_getCanChangeArrows = function () {
+		return this.canChangeArrows;
+	};
+	asc_CAnnotProperty.prototype.asc_setCanChangeArrows = function (v) {
+		this.canChangeArrows = v;
+	};
+	asc_CAnnotProperty.prototype.asc_getSubject = function () {
+		return this.subject;
+	};
+	asc_CAnnotProperty.prototype.asc_setSubject = function (v) {
+		this.subject = v;
+	};
+	asc_CAnnotProperty.prototype.asc_getCanEditText = function () {
+		return this.canEditText;
+	};
+	asc_CAnnotProperty.prototype.asc_setCanEditText = function (v) {
+		this.canEditText = v;
+	};
 
 	/** @constructor */
 	function asc_TextArtProperties(obj) {
@@ -3559,6 +3658,8 @@ function (window, undefined) {
 			this.protectionPrint = obj.protectionPrint;
 
 			this.bSetOriginalSize = obj.bSetOriginalSize;
+			this.transparent = obj.transparent;
+			this.isCrop      = obj.isCrop;
 
 		}
 		else {
@@ -3617,6 +3718,9 @@ function (window, undefined) {
 			this.protectionLocked = undefined;
 			this.protectionPrint = undefined;
 			this.bSetOriginalSize = undefined;
+
+			this.transparent = undefined;
+			this.isCrop      = undefined;
 		}
 	}
 
@@ -3810,7 +3914,7 @@ function (window, undefined) {
 		if(window["IS_NATIVE_EDITOR"]) {
 			let fGetOriginalImageSize = window["native"]["GetOriginalImageSize"] ||
 				window["native"]["DD_GetOriginalImageSize"];
-			let sizes = fGetOriginalImageSize(this.ImageUrl);
+			let sizes = fGetOriginalImageSize.call(window["native"], this.ImageUrl);
 			let w = sizes[0];
 			let h = sizes[1];
 			let isN = AscFormat.isRealNumber;
@@ -3996,7 +4100,16 @@ function (window, undefined) {
 	asc_CImgProperty.prototype.asc_putProtectionPrint = function (v) {
 		this.protectionPrint = v;
 	};
+	asc_CImgProperty.prototype.asc_getTransparent = function () {
+		return this.transparent;
+	};
+	asc_CImgProperty.prototype.asc_putTransparent = function (v) {
+		this.transparent = v;
+	};
 
+	asc_CImgProperty.prototype.asc_getIsCrop = function () {
+		return this.isCrop;
+	};
 	/** @constructor */
 	function asc_CSelectedObject(type, val) {
 		this.Type = (undefined != type) ? type : null;
@@ -4009,6 +4122,8 @@ function (window, undefined) {
 	asc_CSelectedObject.prototype.asc_getObjectValue = function () {
 		return this.Value;
 	};
+
+
 
 	/** @constructor */
 	function asc_CShapeFill() {
@@ -4267,7 +4382,7 @@ function (window, undefined) {
 		return this.colors;
 	};
 	CAscColorScheme.prototype.get_name = function () {
-		return this.name;
+		return AscCommon.translateManager.getValue(this.name);
 	};
 	CAscColorScheme.prototype.get_dk1 = function () {
 		return this.colors[0];
@@ -4403,6 +4518,12 @@ function (window, undefined) {
 	};
 	CMouseMoveData.prototype.get_PlaceholderType = function () {
 		return this.PlaceholderType;
+	};
+	CMouseMoveData.prototype.get_EffectText = function () {
+		return this.EffectText;
+	};
+	CMouseMoveData.prototype.get_EffectDescription = function () {
+		return this.EffectDescription;
 	};
 
 
@@ -4556,6 +4677,8 @@ function (window, undefined) {
 		this.IsEnabledMacroses = true;
 		this.IsWebOpening = false;
 		this.SupportsOnSaveDocument = false;
+		this.Wopi = null;
+		this.shardkey = null;
 
 		//for external reference
 		this.ReferenceData = null;
@@ -4714,6 +4837,18 @@ function (window, undefined) {
 	};
 	prot.get_SupportsOnSaveDocument = prot.asc_getSupportsOnSaveDocument = function () {
 		return this.SupportsOnSaveDocument;
+	};
+	prot.put_Wopi = prot.asc_putWopi = function (v) {
+		this.Wopi = v;
+	};
+	prot.get_Wopi = prot.asc_getWopi = function () {
+		return this.Wopi;
+	};
+	prot.put_Shardkey = prot.asc_putShardkey = function (v) {
+		this.shardkey = v;
+	};
+	prot.get_Shardkey = prot.asc_getShardkey = function () {
+		return this.shardkey;
 	};
 
 	function COpenProgress() {
@@ -4958,7 +5093,13 @@ function (window, undefined) {
 			let ctx = canvasTransparent.getContext("2d");
 			ctx.globalAlpha = this.transparent;
 			ctx.drawImage(this.image, 0, 0);
-			this.imageBase64 = canvasTransparent.toDataURL("image/png");
+			try {
+				this.imageBase64 = canvasTransparent.toDataURL("image/png");
+			}
+			catch (e) {
+				this.imageBase64 = undefined;
+				this.api.sendEvent("asc_onError", Asc.c_oAscError.ID.CannotSaveWatermark, Asc.c_oAscError.Level.NoCritical);
+			}
 			canvasTransparent = null;
 		};
 		this.EndRenderer = function () {
@@ -4968,6 +5109,9 @@ function (window, undefined) {
 			this.imageBase64 = undefined;
 		};
 		this.DrawOnRenderer = function (renderer, w, h) {
+			if(!this.imageBase64) {
+				return;
+			}
 			let wMM = this.width * AscCommon.g_dKoef_pix_to_mm / this.zoom;
 			let hMM = this.height * AscCommon.g_dKoef_pix_to_mm / this.zoom;
 			let x = (w - wMM) / 2;
@@ -5000,13 +5144,13 @@ function (window, undefined) {
 				}
 				switch (oApi.getEditorId()) {
 					case AscCommon.c_oEditorId.Word: {
-						oShape.setWordShape(true);
-						bWord = true;
+						bWord = true && !oApi.isPdfEditor();
+						oShape.setWordShape(bWord);
 						break;
 					}
 					case AscCommon.c_oEditorId.Presentation: {
 						oShape.setWordShape(false);
-						oShape.setParent(oApi.WordControl.m_oLogicDocument.Slides[oApi.WordControl.m_oLogicDocument.CurPage]);
+						oShape.setParent(oApi.WordControl.m_oLogicDocument.GetCurrentSlide());
 						break;
 					}
 					case AscCommon.c_oEditorId.Spreadsheet: {
@@ -5017,9 +5161,11 @@ function (window, undefined) {
 				}
 
 				let _oldTrackRevision = false;
-				if (oApi.getEditorId() == AscCommon.c_oEditorId.Word && oApi.WordControl && oApi.WordControl.m_oLogicDocument) _oldTrackRevision = oApi.WordControl.m_oLogicDocument.GetLocalTrackRevisions();
+				if (oApi.getEditorId() === AscCommon.c_oEditorId.Word && oApi.WordControl && oApi.WordControl.m_oLogicDocument && !oApi.isPdfEditor())
+					_oldTrackRevision = oApi.WordControl.m_oLogicDocument.GetLocalTrackRevisions();
 
-				if (false !== _oldTrackRevision) oApi.WordControl.m_oLogicDocument.SetLocalTrackRevisions(false);
+				if (false !== _oldTrackRevision)
+					oApi.WordControl.m_oLogicDocument.SetLocalTrackRevisions(false);
 
 				let bRemoveDocument = false;
 				if (oApi.WordControl && !oApi.WordControl.m_oLogicDocument) {
@@ -5069,7 +5215,11 @@ function (window, undefined) {
 				if (undefined != align) {
 					oShape.setVerticalAlign(align);
 				}
+				else {
 
+					oShape.setVerticalAlign(1);//ctr
+				}
+				oShape.setVertOverflowType(AscFormat.nVOTOverflow);
 				if (Array.isArray(obj['margins']) && obj['margins'].length === 4) {
 					oShape.setPaddings({
 						Left: obj['margins'][0],
@@ -5227,9 +5377,11 @@ function (window, undefined) {
 					oApi.ShowParaMarks = oldShowParaMarks;
 				}
 
-				if (false !== _oldTrackRevision) oApi.WordControl.m_oLogicDocument.SetLocalTrackRevisions(_oldTrackRevision);
+				if (false !== _oldTrackRevision)
+					oApi.WordControl.m_oLogicDocument.SetLocalTrackRevisions(_oldTrackRevision);
 
-				if (this.imageBackground) delete oApi.ImageLoader.map_image_index[this.imageBackgroundUrl];
+				if (this.imageBackground)
+					delete oApi.ImageLoader.map_image_index[this.imageBackgroundUrl];
 
 			}, this, [obj]);
 
@@ -5328,6 +5480,13 @@ function (window, undefined) {
 			this.zoom = 1;
 			this.calculatezoom = 0;
 			this.CheckParams();
+
+			if (this.contentObjects && "string" === typeof this.contentObjects["fill"])
+			{
+				this.imageBackgroundUrl = this.contentObjects["fill"];
+				this.imageBackground = {};
+			}
+
 			this.Generate();
 		};
 	}
@@ -5338,14 +5497,36 @@ function (window, undefined) {
 		Background: 1,  // Фоновый плагин. Тоже самое, что и системный, но отключаемый.
 		Window: 2,      // Окно
 		Panel: 3,       // Панель
-		Invisible : 4   // Невидимый
+		Invisible : 4,  // Невидимый
+		PanelRight: 5   // Панель справа
 	};
 
 	PluginType["System"] = PluginType.System;
 	PluginType["Background"] = PluginType.Background;
 	PluginType["Window"] = PluginType.Window;
 	PluginType["Panel"] = PluginType.Panel;
+	PluginType["PanelRight"] = PluginType.PanelRight;
 	PluginType["Unvisible"] = PluginType.Unvisible;
+
+	PluginType["getType"] = PluginType.getType = function(type) {
+		if (undefined === type)
+			return undefined;
+
+		if (typeof type !== "string")
+			return type;
+
+		switch (type) {
+			case "system" : return this.System;
+			case "background" : return this.Background;
+			case "window" : return this.Window;
+			case "panel" : return this.Panel;
+			case "panelRight" : return this.PanelRight;
+			case "invisible" : return this.Invisible;
+			default: break;
+		}
+
+		return this.Background;
+	};
 
 	function CPluginVariation() {
 		this.description = "";
@@ -5379,7 +5560,6 @@ function (window, undefined) {
 
 		this.events = [];
 		this.eventsMap = {};
-		this.menu = null;
 	}
 
 	CPluginVariation.prototype["get_Description"] = function () {
@@ -5401,7 +5581,7 @@ function (window, undefined) {
 	};
 
 	CPluginVariation.prototype["get_Visual"] = function () {
-		return (this.type === PluginType.Window || this.type === PluginType.Panel) ? true : false;
+		return (this.type === PluginType.Window || this.type === PluginType.Panel || this.type === PluginType.PanelRight) ? true : false;
 	};
 
 	CPluginVariation.prototype["get_Viewer"] = function () {
@@ -5415,7 +5595,7 @@ function (window, undefined) {
 		return this.isModal;
 	};
 	CPluginVariation.prototype["get_InsideMode"] = function () {
-		return (this.type === PluginType.Panel) ? true : false;
+		return (this.type === PluginType.Panel || this.type === PluginType.PanelRight) ? true : false;
 	};
 	CPluginVariation.prototype["get_CustomWindow"] = function () {
 		return this.isCustomWindow;
@@ -5437,9 +5617,6 @@ function (window, undefined) {
 		this.eventsMap = {};
 		for (let i = 0; i < this.events.length; i++) this.eventsMap[this.events[i]] = true;
 	};
-	CPluginVariation.prototype["get_Menu"] = function () {
-		return this.menu;
-	};
 
 	CPluginVariation.prototype["serialize"] = function () {
 		let _object = {};
@@ -5457,7 +5634,6 @@ function (window, undefined) {
 		_object["isDisplayedInViewer"] = this.isDisplayedInViewer;
 		_object["EditorsSupport"] = this.EditorsSupport;
 
-		_object["menu"] = this.menu;
 		_object["type"] = this.type;
 
 		_object["isCustomWindow"] = this.isCustomWindow;
@@ -5489,17 +5665,13 @@ function (window, undefined) {
 		this.isViewer = (_object["isViewer"] != null) ? _object["isViewer"] : this.isViewer;
 		this.isDisplayedInViewer = (_object["isDisplayedInViewer"] != null) ? _object["isDisplayedInViewer"] : this.isDisplayedInViewer;
 		this.EditorsSupport = (_object["EditorsSupport"] != null) ? _object["EditorsSupport"] : this.EditorsSupport;
-		this.menu = (_object["menu"] != null) ? _object["menu"] : this.menu;
 
 		// default: background
 		this.type = PluginType.Background;
 
-		let _type = _object["type"];
+		let _type = PluginType.getType(_object["type"]);
 		if (undefined !== _type) {
-			if ("system" === _type) this.type = PluginType.System;
-			if ("window" === _type) this.type = PluginType.Window;
-			if ("panel" === _type) this.type = PluginType.Panel;
-			if ("invisible" === _type) this.type = PluginType.Invisible;
+			this.type = _type;
 		}
 		else {
 			// old version: not support background plugins
@@ -5999,7 +6171,8 @@ function (window, undefined) {
 	prot["getView3d"] = prot.getView3d;
 	prot["putView3d"] = prot.putView3d;
 	prot["setView3d"] = prot.setView3d;
-
+	prot["getDisplayTrendlinesEquation"] = prot.getDisplayTrendlinesEquation;
+	prot["putDisplayTrendlinesEquation"] = prot.putDisplayTrendlinesEquation;
 
 	window["AscCommon"].asc_CRect = asc_CRect;
 	prot = asc_CRect.prototype;
@@ -6355,6 +6528,25 @@ function (window, undefined) {
 	prot["get_Position"] = prot["asc_getPosition"] = prot.asc_getPosition;
 	prot["put_Position"] = prot["asc_putPosition"] = prot.asc_putPosition;
 	prot["get_IsMotionPath"] = prot["asc_getIsMotionPath"] = prot.asc_getIsMotionPath;
+	prot["asc_getCanEditText"]		= prot.asc_getCanEditText;
+	prot["asc_setCanEditText"]		= prot.asc_setCanEditText;
+
+	window["Asc"]["asc_CAnnotProperty"] = window["Asc"].asc_CAnnotProperty = asc_CAnnotProperty;
+	prot = asc_CAnnotProperty.prototype;
+	prot["asc_getType"]				= prot.asc_getType;
+	prot["asc_putType"]				= prot.asc_putType;
+	prot["asc_getFill"]				= prot.asc_getFill;
+	prot["asc_putFill"]				= prot.asc_putFill;
+	prot["asc_getStroke"]			= prot.asc_getStroke;
+	prot["asc_putStroke"]			= prot.asc_putStroke;
+	prot["asc_getCanFill"]			= prot.asc_getCanFill;
+	prot["asc_putCanFill"]			= prot.asc_putCanFill;
+	prot["asc_getCanChangeArrows"]	= prot.asc_getCanChangeArrows;
+	prot["asc_setCanChangeArrows"]	= prot.asc_setCanChangeArrows;
+	prot["asc_getSubject"]			= prot.asc_getSubject;
+	prot["asc_setSubject"]			= prot.asc_setSubject;
+	prot["asc_getCanEditText"]		= prot.asc_getCanEditText;
+	prot["asc_setCanEditText"]		= prot.asc_setCanEditText;
 
 
 	window["Asc"]["asc_TextArtProperties"] = window["Asc"].asc_TextArtProperties = asc_TextArtProperties;
@@ -6501,7 +6693,9 @@ function (window, undefined) {
 	prot["put_ProtectionLocked"] = prot["asc_putProtectionLocked"] = prot.asc_putProtectionLocked;
 	prot["get_ProtectionPrint"] = prot["asc_getProtectionPrint"] = prot.asc_getProtectionPrint;
 	prot["put_ProtectionPrint"] = prot["asc_putProtectionPrint"] = prot.asc_putProtectionPrint;
-
+	prot["get_Transparent"] = prot["asc_getTransparent"] = prot.asc_getTransparent;
+	prot["put_Transparent"] = prot["asc_putTransparent"] = prot.asc_putTransparent;
+	prot["get_IsCrop"] = prot["asc_getIsCrop"] = prot.asc_getIsCrop;
 
 	window["AscCommon"].asc_CSelectedObject = asc_CSelectedObject;
 	prot = asc_CSelectedObject.prototype;
@@ -6602,6 +6796,8 @@ function (window, undefined) {
 	prot["get_ReviewChange"] = prot.get_ReviewChange;
 	prot["get_EyedropperColor"] = prot.get_EyedropperColor;
 	prot["get_PlaceholderType"] = prot.get_PlaceholderType;
+	prot["get_EffectText"] = prot.get_EffectText;
+	prot["get_EffectDescription"] = prot.get_EffectDescription;
 
 	window["Asc"]["asc_CUserInfo"] = window["Asc"].asc_CUserInfo = asc_CUserInfo;
 	prot = asc_CUserInfo.prototype;
@@ -6663,6 +6859,10 @@ function (window, undefined) {
 	prot["get_IsWebOpening"] = prot["asc_getIsWebOpening"] = prot.asc_getIsWebOpening;
 	prot["put_SupportsOnSaveDocument"] = prot["asc_putSupportsOnSaveDocument"] = prot.asc_putSupportsOnSaveDocument;
 	prot["get_SupportsOnSaveDocument"] = prot["asc_getSupportsOnSaveDocument"] = prot.asc_getSupportsOnSaveDocument;
+	prot["put_Wopi"] = prot["asc_putWopi"] = prot.asc_putWopi;
+	prot["get_Wopi"] = prot["asc_getWopi"] = prot.asc_getWopi;
+	prot["put_Shardkey"] = prot["asc_putShardkey"] = prot.asc_putShardkey;
+	prot["get_Shardkey"] = prot["asc_getShardkey"] = prot.asc_getShardkey;
 
 	window["AscCommon"].COpenProgress = COpenProgress;
 	prot = COpenProgress.prototype;
@@ -6724,5 +6924,14 @@ function (window, undefined) {
 	CDocInfoProp.prototype['put_SymbolsCount'] = CDocInfoProp.prototype.put_SymbolsCount;
 	CDocInfoProp.prototype['get_SymbolsWSCount'] = CDocInfoProp.prototype.get_SymbolsWSCount;
 	CDocInfoProp.prototype['put_SymbolsWSCount'] = CDocInfoProp.prototype.put_SymbolsWSCount;
-
+	
+	window["AscCommon"]["pix2mm"] = window["AscCommon"].pix2mm = function(pix)
+	{
+		return pix * AscCommon.g_dKoef_pix_to_mm;
+	};
+	window["AscCommon"]["mm2pix"] = window["AscCommon"].mm2pix = function(mm)
+	{
+		return mm * AscCommon.g_dKoef_mm_to_pix;
+	};
+	
 })(window);
