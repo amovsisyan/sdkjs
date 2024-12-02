@@ -136,22 +136,26 @@ CFraction.prototype.Draw_Elements = function(PDSE)
 };
 CFraction.prototype.drawBarFraction = function(PDSE)
 {
-    var mgCtrPrp = this.Get_TxtPrControlLetter();
 
-    var penW = mgCtrPrp.FontSize* 25.4/96 * 0.08;
+	let pr = GetPr(this).Copy();
+	let font = pr.FontFamily.Name;
 
-    var numHeight = this.elements[0][0].size.height;
-
+    var penW = calculateAdjustedSize(MathFontData[font].fractionRuleThickness, pr.FontSize, this);
     var PosLine = this.ParaMath.GetLinePosition(PDSE.Line, PDSE.Range);
+	var numHeight = this.elements[0][0].size.height;
 
-    var x1 = this.pos.x + PosLine.x + this.GapLeft,
+	let Denom = this.Denominator;
+	let nH = Denom.elements[0][0].size.height - Denom.elements[0][0].size.ascent ;
+	if (nH > 0)
+		nH += penW/2;
+
+	var x1 = this.pos.x + PosLine.x + this.GapLeft,
         x2 = this.pos.x + PosLine.x + this.size.width - this.GapRight,
-        y1 = this.pos.y + PosLine.y + numHeight - penW;
+        y1 = this.pos.y + PosLine.y + numHeight  - penW/2 - nH - calculateAdjustedSize(MathFontData[font].AxisHeight, pr.FontSize, this)
 
     if(this.Pr.type == BAR_FRACTION)
     {
-        PDSE.Graphics.SetFont(mgCtrPrp);
-
+        PDSE.Graphics.SetFont(pr);
         this.Make_ShdColor(PDSE, this.Get_CompiledCtrPrp());
         PDSE.Graphics.drawHorLine(0, y1, x1, x2, penW);
     }
@@ -160,107 +164,125 @@ CFraction.prototype.drawBarFraction = function(PDSE)
 };
 CFraction.prototype.drawSkewedFraction = function(PDSE)
 {
-    var mgCtrPrp = this.Get_TxtPrControlLetter();
+	let mgCtrPrp = this.Get_TxtPrControlLetter();
 
-    var gap = this.dW/2 - mgCtrPrp.FontSize*0.0028;
-    var plh = 9.877777777777776 * mgCtrPrp.FontSize / 36;
+	let Num			= this.Numerator.size;
+	let Denom		= this.Denominator.size;
 
-    var minHeight = 2*this.dW,
-        middleHeight = plh*4/3,
-        maxHeight = (3*this.dW + 5*plh)*2/3;
+	var PosLine		= this.ParaMath.GetLinePosition(PDSE.Line, PDSE.Range);
 
-	var tg;
-    var tg1 = -2.22,
-        tg2 = -3.7;
+	AscCommon.g_oTextMeasurer.SetFont(mgCtrPrp);
+	let widthOfFrac = AscCommon.g_oTextMeasurer.Measure2Code("⁄".charCodeAt(0));
 
-    var PosLine = this.ParaMath.GetLinePosition(PDSE.Line, PDSE.Range);
+	var X			= this.pos.x + PosLine.x + this.GapLeft + Num.width - (widthOfFrac.Width - widthOfFrac.WidthG),
+		Y			= this.pos.y + PosLine.y + widthOfFrac.Ascent/2 ;
 
-    var X = this.pos.x + PosLine.x + this.GapLeft,
-        Y = this.pos.y + PosLine.y;
+	PDSE.Graphics.SetFont(mgCtrPrp);
+	this.Make_ShdColor(PDSE, this.Get_CompiledCtrPrp());
+	PDSE.Graphics.FillTextCode(X, Y, "⁄".charCodeAt(0));
 
-    var heightSlash = this.size.height*2/3;
-
-    var x1,  y1,  x2,  y2, b,
-        xx1, yy1, xx2, yy2;
-
-    if(heightSlash < maxHeight)
-    {
-        if(heightSlash < minHeight)
-        {
-            heightSlash = minHeight;
-            tg = tg1;
-        }
-        else
-        {
-            heightSlash = this.size.height*2/3;
-            tg = (heightSlash - maxHeight)*(tg1 - tg2)/(middleHeight - maxHeight) + tg2;
-        }
-
-        b = this.elements[0][0].size.height - tg*(this.elements[0][0].size.width + gap);
-
-        y1 =  this.elements[0][0].size.height/3;
-        y2 =  this.elements[0][0].size.height/3 + heightSlash;
-
-        x1 =  (y1 - b)/tg;
-        x2 =  (y2 - b)/tg;
-
-        xx1 = X + x1;
-        xx2 = X + x2;
-
-        yy1 = Y + y1;
-        yy2 = Y + y2;
-    }
-    else
-    {
-        heightSlash = maxHeight;
-        tg = tg2;
-        var coeff = this.elements[0][0].size.height/this.size.height;
-        var shift = heightSlash*coeff;
-
-        var minVal = plh/2,
-            maxVal = heightSlash - minVal;
-
-        if(shift < minVal)
-            shift = minVal;
-        else if(shift > maxVal)
-            shift = maxVal;
-
-        var y0 = this.elements[0][0].size.height - shift;
-
-        b  = this.elements[0][0].size.height - tg*(this.elements[0][0].size.width + gap);
-
-        y1 = y0;
-        y2 = y0 + heightSlash;
-
-        x1 = (y1 - b)/tg;
-        x2 = (y2 - b)/tg;
-
-        xx1 = X + x1;
-        xx2 = X + x2;
-
-        yy1 = Y + y1;
-        yy2 = Y + y2;
-    }
-
-    this.drawFractionalLine(PDSE, xx1, yy1, xx2, yy2);
+    // var gap = this.dW/2 - mgCtrPrp.FontSize*0.0028;
+    // var plh = 9.877777777777776 * mgCtrPrp.FontSize / 36;
+	//
+    // var minHeight = 2*this.dW,
+    //     middleHeight = plh*4/3,
+    //     maxHeight = (3*this.dW + 5*plh)*2/3;
+	//
+	// var tg;
+    // var tg1 = -2.22,
+    //     tg2 = -3.7;
+	//
+    // var PosLine = this.ParaMath.GetLinePosition(PDSE.Line, PDSE.Range);
+	//
+    // var X = this.pos.x + PosLine.x + this.GapLeft,
+    //     Y = this.pos.y + PosLine.y;
+	//
+    // var heightSlash = this.size.height*2/3;
+	//
+    // var x1,  y1,  x2,  y2, b,
+    //     xx1, yy1, xx2, yy2;
+	//
+    // if(heightSlash < maxHeight)
+    // {
+    //     if(heightSlash < minHeight)
+    //     {
+    //         heightSlash = minHeight;
+    //         tg = tg1;
+    //     }
+    //     else
+    //     {
+    //         heightSlash = this.size.height*2/3;
+    //         tg = (heightSlash - maxHeight)*(tg1 - tg2)/(middleHeight - maxHeight) + tg2;
+    //     }
+	//
+    //     b = this.elements[0][0].size.height - tg*(this.elements[0][0].size.width + gap);
+	//
+    //     y1 =  this.elements[0][0].size.height/3;
+    //     y2 =  this.elements[0][0].size.height/3 + heightSlash;
+	//
+    //     x1 =  (y1 - b)/tg;
+    //     x2 =  (y2 - b)/tg;
+	//
+    //     xx1 = X + x1;
+    //     xx2 = X + x2;
+	//
+    //     yy1 = Y + y1;
+    //     yy2 = Y + y2;
+    // }
+    // else
+    // {
+    //     heightSlash = maxHeight;
+    //     tg = tg2;
+    //     var coeff = this.elements[0][0].size.height/this.size.height;
+    //     var shift = heightSlash*coeff;
+	//
+    //     var minVal = plh/2,
+    //         maxVal = heightSlash - minVal;
+	//
+    //     if(shift < minVal)
+    //         shift = minVal;
+    //     else if(shift > maxVal)
+    //         shift = maxVal;
+	//
+    //     var y0 = this.elements[0][0].size.height - shift;
+	//
+    //     b  = this.elements[0][0].size.height - tg*(this.elements[0][0].size.width + gap);
+	//
+    //     y1 = y0;
+    //     y2 = y0 + heightSlash;
+	//
+    //     x1 = (y1 - b)/tg;
+    //     x2 = (y2 - b)/tg;
+	//
+    //     xx1 = X + x1;
+    //     xx2 = X + x2;
+	//
+    //     yy1 = Y + y1;
+    //     yy2 = Y + y2;
+    // }
+	//
+    // this.drawFractionalLine(PDSE, xx1, yy1, xx2, yy2);
 
     CMathBase.prototype.Draw_Elements.call(this, PDSE);
 };
 CFraction.prototype.drawLinearFraction = function(PDSE)
 {
-    var shift = 0.1*this.dW;
+	let mgCtrPrp = this.Get_TxtPrControlLetter();
 
-    var PosLine = this.ParaMath.GetLinePosition(PDSE.Line, PDSE.Range);
+	let Num			= this.Numerator.size;
+	let Denom		= this.Denominator.size;
 
-    var X = this.pos.x + PosLine.x + this.GapLeft,
-        Y = this.pos.y + PosLine.y;
+	var PosLine		= this.ParaMath.GetLinePosition(PDSE.Line, PDSE.Range);
 
-    var x1 = X + this.elements[0][0].size.width + this.dW - shift,
-        y1 = Y,
-        x2 = X + this.elements[0][0].size.width + shift,
-        y2 = Y + this.size.height;
+	AscCommon.g_oTextMeasurer.SetFont(mgCtrPrp);
+	let widthOfFrac = AscCommon.g_oTextMeasurer.Measure2Code("⁄".charCodeAt(0));
 
-    this.drawFractionalLine(PDSE, x1, y1, x2, y2);
+	var X			= this.pos.x + PosLine.x + Num.width - (widthOfFrac.Width - widthOfFrac.WidthG),
+		Y			= this.pos.y + PosLine.y + Num.height
+
+	PDSE.Graphics.SetFont(mgCtrPrp);
+	this.Make_ShdColor(PDSE, this.Get_CompiledCtrPrp());
+	PDSE.Graphics.FillTextCode(X, Y, "⁄".charCodeAt(0));
 
     CMathBase.prototype.Draw_Elements.call(this, PDSE);
 };
@@ -436,21 +458,17 @@ CFraction.prototype.Recalculate_Range = function(PRS, ParaPr, Depth)
 };
 CFraction.prototype.recalculateBarFraction = function(oMeasure, bNumBarFraction, bDenBarFraction)
 {
-    var Plh = new CMathText(true);
-    Plh.add(0x2B1A);
-    this.MeasureJustDraw(Plh);
+	var mgCtrPrp = this.Get_TxtPrControlLetter();
 
     var num = this.elements[0][0].size,
         den = this.elements[1][0].size;
 
-    var NumWidth = bNumBarFraction ? num.width + 0.25*Plh.size.width : num.width;
-    var DenWidth = bDenBarFraction ? den.width + 0.25*Plh.size.width : den.width;
-
-    var mgCtrPrp = this.Get_TxtPrControlLetter();
+    var NumWidth = num.width;
+    var DenWidth = den.width;
 
     var width  = NumWidth > DenWidth ? NumWidth : DenWidth;
     var height = num.height + den.height;
-    var ascent = num.height + this.ParaMath.GetShiftCenter(oMeasure, mgCtrPrp);
+    var ascent = num.ascent// + den.ascent
 
     width += this.GapLeft + this.GapRight;
 
@@ -460,12 +478,16 @@ CFraction.prototype.recalculateBarFraction = function(oMeasure, bNumBarFraction,
 };
 CFraction.prototype.recalculateSkewed = function(oMeasure)
 {
-    var mgCtrPrp = this.Get_TxtPrControlLetter();
+	var num = this.elements[0][0].size,
+		den = this.elements[1][0].size;
 
-    this.dW = 5.011235894097222 * mgCtrPrp.FontSize/36;
-    var width = this.elements[0][0].size.width + this.dW + this.elements[0][1].size.width;
-    var height = this.elements[0][0].size.height + this.elements[0][1].size.height;
-    var ascent = this.elements[0][0].size.height + this.ParaMath.GetShiftCenter(oMeasure, mgCtrPrp);
+	let pr = GetPr(this).Copy();
+	let font = pr.FontFamily.Name;
+	var dW = calculateAdjustedSize(MathFontData[font].skewedFractionHorizontalGap, pr.FontSize, this);
+
+	var width  = num.width + dW + den.width;
+    var height = num.height + den.height;
+    var ascent = num.height + this.ParaMath.GetShiftCenter(oMeasure, pr);
 
     width += this.GapLeft + this.GapRight;
 
@@ -475,38 +497,17 @@ CFraction.prototype.recalculateSkewed = function(oMeasure)
 };
 CFraction.prototype.recalculateLinear = function()
 {
-    var AscentFirst   = this.elements[0][0].size.ascent,
-        DescentFirst  = this.elements[0][0].size.height - this.elements[0][0].size.ascent,
-        AscentSecond  = this.elements[0][1].size.ascent,
-        DescentSecond = this.elements[0][1].size.height - this.elements[0][1].size.ascent;
+    var height	= this.elements[0][0].size.height;
+    var width	= this.elements[0][0].size.width + this.elements[0][1].size.width;
+    let ascent	= Math.max(
+    	this.elements[0][0].size.ascent,
+    	this.elements[0][1].size.ascent
+	);
 
-    var H = AscentFirst + DescentSecond;
-
-    var mgCtrPrp = this.Get_TxtPrControlLetter();
-
-    var gap = 5.011235894097222*mgCtrPrp.FontSize/36;
-
-    var H3 = gap*4.942252165543792,
-        H4 = gap*7.913378248315688,
-        H5 = gap*9.884504331087584;
-
-    if( H < H3 )
-        this.dW = gap;
-    else if( H < H4 )
-        this.dW = 2*gap;
-    else if( H < H5 )
-        this.dW = 2.8*gap;
-    else
-        this.dW = 3.4*gap;
-
-    var ascent  = AscentFirst > AscentSecond ? AscentFirst : AscentSecond;
-    var descent = DescentFirst > DescentSecond ? DescentFirst : DescentSecond;
-
-    var height = ascent + descent;
-
-    var width = this.elements[0][0].size.width + this.dW + this.elements[0][1].size.width;
-
-    width += this.GapLeft + this.GapRight;
+	let pr = GetPr(this).Copy();
+	AscCommon.g_oTextMeasurer.SetFont(pr);
+	let widthOfFrac = AscCommon.g_oTextMeasurer.Measure2Code("⁄".charCodeAt(0));
+    width += this.GapLeft + this.GapRight //+ widthOfFrac.Width;
 
     this.size.height = height;
     this.size.width  = width;
@@ -514,9 +515,16 @@ CFraction.prototype.recalculateLinear = function()
 };
 CFraction.prototype.setPosition = function(pos, PosInfo)
 {
-    if(this.Pr.type == SKEWED_FRACTION)
+    if(this.Pr.type == SKEWED_FRACTION || this.Pr.type == LINEAR_FRACTION)
     {
         this.UpdatePosBound(pos, PosInfo);
+
+        let pr = GetPr(this);
+        g_oTextMeasurer.SetFont(pr);
+		let font = pr.FontFamily.Name;
+
+		var dW = calculateAdjustedSize(MathFontData[font].skewedFractionHorizontalGap, pr.FontSize, this);
+		var dH = calculateAdjustedSize(MathFontData[font].skewedFractionVerticalGap, pr.FontSize, this);
 
         var Numerator   = this.Content[0],
             Denominator = this.Content[1];
@@ -525,22 +533,26 @@ CFraction.prototype.setPosition = function(pos, PosInfo)
         this.pos.y = pos.y - this.size.ascent;
 
         var X = this.pos.x + this.GapLeft,
-            Y = this.pos.y;
+            Y = this.pos.y + Numerator.size.ascent;
 
         var PosNum = new CMathPosition();
 
         PosNum.x = X;
-        PosNum.y = Y + Numerator.size.ascent;
+        PosNum.y = Y //+ Numerator.size.ascent;
 
         var PosDen = new CMathPosition();
 
-        PosDen.x = X + Numerator.size.width + this.dW;
-        PosDen.y = Y + Numerator.size.height + Denominator.size.ascent;
+		AscCommon.g_oTextMeasurer.SetFont(pr);
+		let widthOfFrac = AscCommon.g_oTextMeasurer.Measure2Code("⁄".charCodeAt(0));
+
+        PosDen.x = X + Numerator.size.width + widthOfFrac.Width;
+        if (this.Pr.type == SKEWED_FRACTION)
+        	PosDen.y = Y + Numerator.size.height + dH;
 
         Numerator.setPosition(PosNum, PosInfo);
         Denominator.setPosition(PosDen, PosInfo);
 
-        pos.x += this.size.width;
+        pos.x += this.size.width + X + Numerator.size.width + widthOfFrac.Width;
     }
     else
     {
@@ -581,9 +593,9 @@ CFraction.prototype.fillContent = function()
     }
     else if(this.Pr.type == SKEWED_FRACTION)
     {
-        this.setDimension(1, 2);
-        this.elements[0][0] = this.Numerator.getElement();
-        this.elements[0][1] = this.Denominator.getElement();
+        this.setDimension(2, 1);
+        this.elements[0][0] = this.Numerator;
+        this.elements[1][0] = this.Denominator;
     }
     else if(this.Pr.type == LINEAR_FRACTION)
     {
@@ -806,13 +818,11 @@ CNumerator.prototype = Object.create(CFractionBase.prototype);
 CNumerator.prototype.constructor = CNumerator;
 CNumerator.prototype.recalculateSize = function()
 {
+	let pr		= GetPr(this);
+	g_oTextMeasurer.SetFont(pr);
     var arg = this.elements[0][0].size;
-
-    var mgCtrPrp = this.Get_TxtPrControlLetter();
-
     var Descent = arg.height - arg.ascent; // baseLine
-
-    g_oTextMeasurer.SetFont(mgCtrPrp);
+    g_oTextMeasurer.SetFont(pr);
     var Height = g_oTextMeasurer.GetHeight();
 
     var gapNum, minGap;
@@ -836,18 +846,37 @@ CNumerator.prototype.recalculateSize = function()
         minGap = Height/9.77;
 
         var delta = gapNum - Descent;
-        this.gap = delta > minGap ? delta : minGap;
+
     }
 
-
     var width = arg.width;
-    var height = arg.height + this.gap;
+    var height = arg.height;
     var ascent = arg.ascent;
 
     this.size.height = height;
     this.size.width  = width;
     this.size.ascent = ascent;
 };
+CNumerator.prototype.setPosition = function(pos, PosInfo)
+{
+	let pr		= GetPr(this);
+	let font	= pr.FontFamily.Name;
+	g_oTextMeasurer.SetFont(pr);
+
+	if (this.Parent.Pr.type === BAR_FRACTION)
+	{
+		AscCommon.g_oTextMeasurer.SetFont(pr);
+		let Frac = AscCommon.g_oTextMeasurer.Measure2Code("1".charCodeAt(0));
+		let one = Frac.Height - Frac.Ascent;
+
+		let lineDescentNum	= this.elements[0][0].size.height - this.elements[0][0].size.ascent;
+		let nUp				= getSize(MathFontData[font].fractionNumeratorDisplayStyleShiftUp.value, pr.FontSize, this);
+		pos.y				-= nUp - lineDescentNum - one;
+	}
+
+	CFractionBase.prototype.setPosition.call(this, pos, PosInfo);
+};
+
 
 /**
  *
@@ -867,7 +896,7 @@ CDenominator.prototype.recalculateSize = function()
 
     var mgCtrPrp = this.Get_TxtPrControlLetter();
 
-    var Ascent = arg.ascent -  4.939*mgCtrPrp.FontSize/36;
+    var Ascent = arg.ascent; //-  4.939*mgCtrPrp.FontSize/36;
 
     g_oTextMeasurer.SetFont(mgCtrPrp);
     var Height = g_oTextMeasurer.GetHeight();
@@ -886,23 +915,278 @@ CDenominator.prototype.recalculateSize = function()
     }
 
     var delta = gapDen - Ascent;
-    this.gap = delta > minGap ? delta : minGap;
-
+    this.gap = 0;
 
     var width = arg.width;
-    var height = arg.height + this.gap;
-    var ascent = arg.ascent + this.gap;
+    var height = arg.height;
+    var ascent = arg.ascent;
 
     this.size.height = height;
-    this.size.width  = width;
+    this.size.width  = width ;
     this.size.ascent = ascent;
 };
 CDenominator.prototype.setPosition = function(pos, PosInfo)
 {
-    pos.y += this.gap;
+	let pr = GetPr(this);
+
+	let font							= pr.FontFamily.Name;
+	let FractionDenominatorShiftDown	= calculateAdjustedSize(MathFontData[font].fractionDenominatorDisplayStyleShiftDown, pr.FontSize, this);
+
+	pos.y -= this.size.height;
+	pos.y += FractionDenominatorShiftDown
+	//pos.y += lineDescentNum;
 
 	CFractionBase.prototype.setPosition.call(this, pos, PosInfo);
 };
+
+function calculateAdjustedSize(FractionRuleThickness, fontSize, oThis) {
+	const { value, deviceTable } = FractionRuleThickness;
+
+	if (!deviceTable)
+	{
+		return getSize(value, fontSize, oThis);
+	}
+
+	const { startSize, endSize, deltaFormat, deltaValue } = deviceTable;
+
+	if (fontSize < startSize || fontSize > endSize) {
+		return getSize(value, fontSize, oThis);
+	}
+
+	const index = fontSize - startSize;
+	let adjustment = 0;
+	switch (deltaFormat) {
+		case 1:
+			const deltaIndex1 = Math.floor(index / 8);
+			const bitShift1 = (7 - (index % 8)) * 2;
+			adjustment = (deltaValue[deltaIndex1] >> bitShift1) & 0x03;
+			adjustment = (adjustment > 1) ? adjustment - 4 : adjustment;
+			break;
+
+		case 2:
+			const deltaIndex2 = Math.floor(index / 4);
+			adjustment = (deltaValue[deltaIndex2] >> ((3 - (index % 4)) * 4)) & 0x0F;
+			adjustment = (adjustment > 7) ? adjustment - 16 : adjustment;
+			break;
+
+		case 3:
+			const deltaIndex3 = Math.floor(index / 2);
+			adjustment = (deltaValue[deltaIndex3] >> ((1 - (index % 2)) * 8)) & 0xFF;
+			adjustment = (adjustment > 127) ? adjustment - 256 : adjustment;
+			break;
+	}
+	return getSize(value + adjustment, fontSize, oThis);
+}
+function getSize(fUnits, fontSize, oThis)
+{
+	let pr = GetPr(oThis);
+
+	let font = pr.FontFamily.Name;
+	let font_m_lUnits_Per_Em = MathFontData[font].m_lUnits_Per_Em;
+	return fUnits / font_m_lUnits_Per_Em * (fontSize / 72 * 25.4)
+}
+
+function GetPr(oThis)
+{
+	var arg = oThis.elements ? oThis.elements[0][0] : undefined;
+	let argContent = arg ? arg.Content[0] : undefined;
+
+	if (!argContent)
+	{
+		if ( oThis.Get_TxtPrControlLetter)
+			return oThis.Get_TxtPrControlLetter()
+		else
+			return oThis.CompiledPr.Copy();
+	}
+	else
+	{
+		return argContent.CompiledPr;
+	}
+}
+
+let MathFontData = {
+	'Cambria Math': {
+		AxisHeight: {
+			value: 585,
+			deviceTable : {
+				startSize: 10,
+				endSize: 109,
+				deltaFormat: 1,
+				deltaValue: [
+					1, 1, 1, 0, 1, 1, 0, 0, 1, 1,
+					0, 0, 1, 0, 0, 0, 1, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, -1, 0, 0,
+					0, 0, 1, 1, 0, 0, 1, 1, 0, 0,
+					1, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+					1, 0, 0, 1, 1, 0, 0, 0, 0, -1,
+					1, 1, 0, 1, 1, 1, 0, 1, 1, 0,
+					0, 1, 1, 0, 0, 1, 0, 0, 0, 1,
+					1, 1, 0, 1, 0, 0, 0, 0, 0, 0,
+					0, 1, 1, 1, 0, 1, 1, 0, 0, 1
+				],
+			}
+		},
+		fractionNumeratorGapMin: {
+			value: 133,
+			deviceTable : {
+				startSize: 6,
+				endSize: 38,
+				deltaFormat: 1,
+				deltaValue: [
+					1, 1, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0, 0,
+					-1, 0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 1, 1, 1
+				]
+			},
+		},
+		fractionNumDisplayStyleGapMin: {
+			value: 260,
+		},
+		fractionRuleThickness: {
+			value: 133,
+			deviceTable: {
+				startSize: 6,
+				endSize: 100,
+				deltaFormat: 1,
+				deltaValue: [
+					1, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0, -1, 0,
+					0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, -1, -1, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+					0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+				]
+			}
+		},
+		fractionNumeratorDisplayStyleShiftUp: {
+			value: 1550,
+		},
+		fractionDenominatorDisplayStyleShiftDown: {
+			value: 1370,
+		},
+		fractionDenomDisplayStyleGapMin: {
+			value: 260,
+		},
+		subscriptBaselineDropMin: {
+			value: 320,
+		},
+		superscriptBaselineDropMax: {
+			value: 460,
+		},
+        superscriptShiftUp: {
+            value: 750,
+            deviceTable : {
+				startSize: 12,
+				endSize: 12,
+				deltaFormat: 1,
+				deltaValue:[1],
+			}
+        },
+		superscriptShiftUpCramped : {
+			value: 615,
+			deviceTable : {
+				startSize: 12,
+				endSize: 12,
+				deltaFormat: 1,
+				deltaValue:[1],
+			}
+		},
+        superscriptBottomMin: {
+            value: 239,
+        },
+		superscriptBottomMaxWithSubscript: {
+			value: 765,
+		},
+
+		skewedFractionHorizontalGap: {
+			value: 800,
+		},
+		skewedFractionVerticalGap: {
+			value: 133,
+		},
+
+		ascender: 1593,
+		descender:-455,
+		m_lUnits_Per_Em: 2048,
+		os2_sTypoLineGap: 353,
+	},
+	'Asana Math': {
+		AxisHeight: {
+			value: 271,
+		},
+		fractionRuleThickness: {
+			value: 59,
+		},
+		fractionNumeratorGapMin : {
+			value: 116,
+			deviceTable : {
+				startSize: 6,
+				endSize: 23,
+				deltaFormat: 1,
+				deltaValue: [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+			}
+		},
+
+		fractionNumDisplayStyleGapMin: {
+			value: 130,
+		},
+		fractionNumeratorDisplayStyleShiftUp: {
+			value: 725,
+		},
+		fractionDenominatorDisplayStyleShiftDown: {
+			value: 710,
+		},
+		fractionDenomDisplayStyleGapMin: {
+			value: 120,
+		},
+		subscriptBaselineDropMin: {
+			value: 222,
+		},
+		superscriptBaselineDropMax: {
+			value: 230,
+		},
+        superscriptShiftUp: {
+            value: 361,
+            deviceTable : {
+				startSize: 12,
+				endSize: 12,
+				deltaFormat: 1,
+				deltaValue:[1],
+			}
+        },
+		superscriptShiftUpCramped : {
+			value: 296,
+			deviceTable : {
+				startSize: 12,
+				endSize: 12,
+				deltaFormat: 1,
+				deltaValue:[1],
+			}
+		},
+        superscriptBottomMin: {
+            value: 154,
+        },
+
+		superscriptBottomMaxWithSubscript: {
+			value: 379,
+		},
+
+		skewedFractionHorizontalGap: {
+			value: 400,
+		},
+		skewedFractionVerticalGap: {
+			value: 60,
+		},
+
+		ascender: 743,
+		descender:-288,
+		m_lUnits_Per_Em: 1024,
+		os2_sTypoLineGap: 50,
+	}
+}
 
 //--------------------------------------------------------export----------------------------------------------------
 window['AscCommonWord'] = window['AscCommonWord'] || {};

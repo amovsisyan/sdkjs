@@ -847,12 +847,23 @@ CMathBase.prototype.Set_CompiledCtrPrp = function(Parent, ParaMath, RPI)
         }
 
         this.TextPrControlLetter.FontSize = FontSize;
-        this.TextPrControlLetter.FontFamily =
-        {
-            Name:       defaultTxtPrp.FontFamily.Name,
-            Index:      defaultTxtPrp.FontFamily.Index
-        }; // Cambria Math
 
+		// temp
+        if (!this.CtrPrp.FontFamily)
+		{
+			this.TextPrControlLetter.FontFamily = {
+				Name:       defaultTxtPrp.FontFamily.Name,
+				Index:      defaultTxtPrp.FontFamily.Index
+				// Cambria Math
+			}
+		}
+		else
+		{
+			this.TextPrControlLetter.FontFamily = {
+				Name:       this.CtrPrp.FontFamily.Name,
+				Index:      this.CtrPrp.FontFamily.Index
+			};
+		}
 
         this.RecalcInfo.bCtrPrp = false;
     }
@@ -1121,8 +1132,16 @@ CMathBase.prototype.Apply_TextPrToCtrPr = function(TextPr, IncFontSize, ApplyToA
 		if (undefined !== TextPr.RFonts)
 		{
 			var RFonts = new CRFonts();
-			RFonts.SetAll("Cambria Math", -1);
 
+			if (!TextPr.FontFamily)
+			{
+				RFonts.SetAll("Cambria Math", -1);
+			}
+			else
+			{
+				RFonts.SetAll(TextPr.FontFamily.Name, TextPr.FontFamily.Index);
+				this.CtrPrp.FontFamily = { Name: TextPr.FontFamily.Name, Index: TextPr.FontFamily.Index}
+			}
 			this.raw_SetRFonts(RFonts);
 		}
 	}

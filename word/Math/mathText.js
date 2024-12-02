@@ -948,6 +948,15 @@ CMathText.prototype.Draw = function(x, y, pGraphics, InfoTextPr)
 			}
 			else
 			{
+				// if (this.Parent && AscMath.MathLiterals.operator.SearchU(String.fromCharCode(this.value)))
+				// {
+				// 	debugger
+				// 	let font = this.Parent.CompiledPr.FontFamily.Name;
+				//
+				// 	Y += this.size.ascent - this.size.height/2
+				// 	Y -= calculateAdjustedSize(MathFontData[font].AxisHeight, this.Parent.CompiledPr.FontSize, this.Parent)
+				// }
+
 				// на отрисовку символа отправляем положение baseLine
 				pGraphics.FillTextCode(X, Y, this.RecalcInfo.StyleCode);
 			}
@@ -1306,7 +1315,7 @@ function CMathInfoTextPr(InfoTextPr)
     this.bApostrophe      = false;
     this.Font =
     {
-        FontFamily:     {Name:  "Cambria Math", Index : -1},
+        FontFamily:     this.TextPr.FontFamily,
         FontSize:       this.TextPr.FontSize,
         Italic:         false,
         Bold:           false

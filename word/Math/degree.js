@@ -199,58 +199,49 @@ CDegreeBase.prototype.GetSizeSup = function(oMeasure, Metric)
         bTextElement = bSameFontSize || (lastElem.Type !== para_Math_Run && lastElem.IsJustDraw());
     }
 
-    var PlH = 0.64*this.ParaMath.GetPlh(oMeasure, mgCtrPrp);
-    var UpBaseline = 0.75*PlH; // расстояние от baseline основания до бейзлайна итератора
+    let pr			= GetPr(this);
+	let font		= pr.FontFamily.Name;
+    var UpBaseline	= calculateAdjustedSize(MathFontData[font].superscriptShiftUp, mgCtrPrp.FontSize, this) // расстояние от baseline основания до бейзлайна итератора
+    var UpBaselineCramped	= calculateAdjustedSize(MathFontData[font].superscriptShiftUpCramped, mgCtrPrp.FontSize, this) // расстояние от baseline основания до бейзлайна итератора
+	var shiftForBrackets = calculateAdjustedSize(MathFontData[font].superscriptBaselineDropMax, mgCtrPrp.FontSize, this) // расстояние от baseline основания до бейзлайна итератора
 
-    if(bTextElement)
+	console.log(this.baseContent)
+	if (this.Parent && this.Parent.Parent && this.Parent.Parent instanceof CRadical)
+	{
+		this.upBase = 0;
+		this.upIter -= iter.height + UpBaselineCramped;
+	}
+	else if ( this.baseContent.Content.length === 3 && this.baseContent.Content[1] instanceof CDelimiter)
+	{
+		this.iterContent.pos.x = 0;
+		this.iterContent.pos.y = 0;
+		// let BoundsItem = this.baseContent.Bounds.Get_LineBound(0,0);
+		// let oDelSize = this.baseContent.Content[1].GeneralMetrics;
+		// this.upBase = 0;
+		// // set on delimiter baseline
+		// this.upIter -= -(BoundsItem.H - iter.height)/2 - (iter.height - iter.ascent)
+		// this.upIter -= iter.height;
+		// // 		// move to bracket up
+		// this.upIter -= oDelSize.height;
+		// shift  superscriptBaselineDropMax
+		//this.upIter += shiftForBrackets
+	}
+    else if(bTextElement)
     {
-        var last = lastElem.size,
-            upBaseLast = 0,
-            upBaseIter = 0;
-
-        if( (last.ascent - UpBaseline) + (iter.height - iter.ascent) >  (last.ascent - 2/9*PlH) )
-            upBaseLast = iter.height - (last.ascent - 2/9*PlH);
-        else if(UpBaseline + iter.ascent > last.ascent)
-            upBaseLast = UpBaseline + iter.ascent - last.ascent;
-        else
-            upBaseIter = last.ascent - UpBaseline - iter.ascent;
-
-        if(upBaseLast + last.ascent > baseAsc)
-        {
-            this.upBase = upBaseLast - (baseAsc - last.ascent);
-            this.upIter = upBaseIter;
-        }
-        else
-        {
-            this.upBase = 0;
-            this.upIter = (baseAsc - upBaseLast - last.ascent) + upBaseIter;
-        }
+		this.upBase = 0;
+		this.upIter -= iter.height + UpBaseline;
     }
     else
     {
-        var shCenter = this.ParaMath.GetShiftCenter(oMeasure, mgCtrPrp);
-
-        if(iter.height - iter.ascent + shCenter > baseAsc) // для дробей и т.п.
-        {
-            this.upBase = iter.height - (baseAsc - shCenter);
-        }
-        else if(iter.ascent > shCenter)
-        {
-            this.upBase = iter.ascent - shCenter;
-        }
-        else
-        {
-            this.upIter = shCenter - iter.ascent;
-        }
+		this.upBase = 0;
+		this.upIter -= iter.height + UpBaseline;
     }
 
     var height = this.upBase + baseHeight;
     var ascent = this.upBase + baseAsc;
 
-    this.upIter -= ascent;
-
     var width = baseWidth + iter.width + this.dW;
-    width += this.GapLeft + this.GapRight;
+		width += this.GapLeft + this.GapRight;
 
     var ResultSize = new CMathSize();
 
@@ -391,8 +382,8 @@ CDegreeBase.prototype.setPosition = function(pos, PosInfo)
     }
     else
     {
-        if(CurLine == 0 && CurRange == 0)
-            pos.x += this.BrGapLeft;
+       // if(CurLine == 0 && CurRange == 0)
+            //pos.x += this.BrGapLeft;
 
         Y = pos.y;
 
@@ -403,13 +394,10 @@ CDegreeBase.prototype.setPosition = function(pos, PosInfo)
 
         if(EndPos == Lng - 1)
         {
-            pos.x += this.dW;
-
             pos.y += this.upIter + this.iterContent.size.ascent;
+			this.iterContent.setPosition(pos, PosInfo);
 
-            this.iterContent.setPosition(pos, PosInfo);
-
-            pos.x += this.BrGapRight;
+            //pos.x += this.BrGapRight;
         }
 
         pos.y = Y;

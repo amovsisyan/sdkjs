@@ -8358,25 +8358,25 @@ ParaRun.prototype.Apply_Pr = function(TextPr)
 
 	if (TextPr.RFonts && !this.IsInCheckBox())
 	{
-		if (para_Math_Run === this.Type && !this.IsNormalText()) // при смене Font в этом случае (даже на Cambria Math) cs, eastAsia не меняются
-		{
-			// только для редактирования
-			// делаем так для проверки действительно ли нужно сменить Font, чтобы при смене других текстовых настроек не выставился Cambria Math (TextPr.RFonts приходит всегда в виде объекта)
-			if (TextPr.RFonts.Ascii !== undefined || TextPr.RFonts.HAnsi !== undefined)
-			{
-				var RFonts = new CRFonts();
-				RFonts.SetAll("Cambria Math", -1);
-
-				this.Set_RFonts2(RFonts);
-			}
-		}
-		else
-		{
+		// if (para_Math_Run === this.Type && !this.IsNormalText()) // при смене Font в этом случае (даже на Cambria Math) cs, eastAsia не меняются
+		// {
+		// 	// только для редактирования
+		// 	// делаем так для проверки действительно ли нужно сменить Font, чтобы при смене других текстовых настроек не выставился Cambria Math (TextPr.RFonts приходит всегда в виде объекта)
+		// 	if (TextPr.RFonts.Ascii !== undefined || TextPr.RFonts.HAnsi !== undefined)
+		// 	{
+		// 		// var RFonts = new CRFonts();
+		// 		// RFonts.SetAll("Cambria Math", -1);
+		// 		//
+		// 		// this.Set_RFonts2(RFonts);
+		// 	}
+		// }
+		// else
+		// {
 			if (TextPr.FontFamily)
 				this.ApplyFontFamily(TextPr.FontFamily.Name);
 			else
 				this.Set_RFonts2(TextPr.RFonts);
-		}
+		//}
 	}
 
 

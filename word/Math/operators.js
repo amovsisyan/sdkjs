@@ -233,17 +233,22 @@ CGlyphOperator.prototype.draw = function(pGraphics, XX, YY, PDSE)
 {
     this.Parent.Make_ShdColor(PDSE);
 
-    var intGrid = pGraphics.GetIntegerGrid();
-    pGraphics.SetIntegerGrid(false);
+	var PosLine = this.Parent.ParaMath.GetLinePosition(PDSE.Line, PDSE.Range);
 
-    pGraphics.p_width(this.penW*1000);
-    pGraphics._s();
+	pGraphics.SetFont(this.Parent.Parent.CompiledCtrPrp);
+	pGraphics.FillTextCode(this.Parent.pos.x+ PosLine.x,  PosLine.y, this.Parent.code);
 
-    this.drawPath(pGraphics, XX, YY, PDSE);
-
-    pGraphics.df();
-    pGraphics._s();
-    pGraphics.SetIntegerGrid(intGrid);
+    // var intGrid = pGraphics.GetIntegerGrid();
+    // pGraphics.SetIntegerGrid(false);
+	//
+    // pGraphics.p_width(this.penW*1000);
+    // pGraphics._s();
+	//
+    // this.drawPath(pGraphics, XX, YY, PDSE);
+	//
+    // pGraphics.df();
+    // pGraphics._s();
+    // pGraphics.SetIntegerGrid(intGrid);
 };
 CGlyphOperator.prototype.drawOnlyLines = function(x, y, pGraphics, PDSE)
 {

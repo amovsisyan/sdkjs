@@ -303,6 +303,8 @@
 
 			Width  = Temp.fAdvanceX * 25.4 / 72;
 
+			debugger
+
 			if (Temp.oBBox.rasterDistances == null)
 			{
 				return {

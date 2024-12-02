@@ -5560,6 +5560,8 @@
 		if (oContent instanceof ParaRun)
 		{
 			oPr = oContent.Pr.Copy();
+			if (oContent.CompiledPr.FontFamily)
+				oPr.FontFamily = {Name :  oContent.CompiledPr.FontFamily.Name, Index: oContent.CompiledPr.FontFamily.Index};
 		}
 		else if (oContent instanceof CMathContent && !oContent.CtrPrp.IsEmpty())
 		{

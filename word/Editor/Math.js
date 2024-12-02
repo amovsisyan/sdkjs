@@ -41,8 +41,8 @@ var c_oAscRevisionsChangeType = Asc.c_oAscRevisionsChangeType;
 var g_oTableId = AscCommon.g_oTableId;
 var History = AscCommon.History;
 
-var g_dMathArgSizeKoeff_1 = 0.76;
-var g_dMathArgSizeKoeff_2 = 0.6498; // 0.76 * 0.855
+var g_dMathArgSizeKoeff_1 = 0.73;
+var g_dMathArgSizeKoeff_2 = 0.60; // 0.76 * 0.855
 
 function CMathMenuSettings(oMathPr)
 {
