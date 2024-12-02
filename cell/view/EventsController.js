@@ -2140,8 +2140,8 @@
 				deltaX >>= 0;
 				deltaY >>= 0;
 
-				deltaX = (deltaX / wb.getWorksheet().getHScrollStep()) * AscCommon.AscBrowser.retinaPixelRatio;
-				deltaY = (deltaY / wb.getWorksheet().getVScrollStep()) * AscCommon.AscBrowser.retinaPixelRatio;
+				deltaX = (deltaX / wb.getWorksheet().getHScrollStep());
+				deltaY = (deltaY / wb.getWorksheet().getVScrollStep());
 			} else {
 				if (undefined !== event.wheelDelta && 0 !== event.wheelDelta) {
 					deltaY = -1 * event.wheelDelta / 40;

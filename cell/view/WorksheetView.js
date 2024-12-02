@@ -1199,7 +1199,7 @@
 		if (isMobileVersion || AscCommonExcel.c_oAscScrollType.ScrollInitRowsColsCount & this.scrollType) {
 			//beforeVisibleRangeHeight += this.getScrollCorrect();
 		}
-		//beforeVisibleRangeHeight += this.getScrollCorrect();
+		beforeVisibleRangeHeight += this.getScrollCorrect();
 		return defaultScrollPxStep === 0 ? 0 : ((beforeVisibleRangeHeight - frozenVisibleRangeHeight)/defaultScrollPxStep)/this.getRetinaPixelRatio();
 	};
 
@@ -10270,7 +10270,6 @@
 		}
     };
 
-	window.isReverse;
     WorksheetView.prototype.scrollVertical = function (delta, editor, initRowsCount) {
 		let t = this;
         var vr = this.visibleRange;
@@ -10285,7 +10284,7 @@
 
 		let defaultScrollPxStep = unitDeltaStep * Math.abs(delta);
 		if (defaultScrollPxStep < 1) {
-			console.log("ahtung")
+			//console.log("ahtung")
 			return;
 		}
 		defaultScrollPxStep = Math.floor(defaultScrollPxStep);
@@ -10302,7 +10301,7 @@
 			window.val += defaultScrollPxStep;
 		}
 
-		console.log("window.val: " + window.val + " window.valReverse: " + window.valReverse)
+		//console.log("window.val: " + window.val + " window.valReverse: " + window.valReverse)
 
 		let deltaRows = 0, deltaCorrect = 0;
 		let currentScrollCorrect = this.getScrollCorrect();
@@ -10629,6 +10628,13 @@
 			return false;
 		};
 
+		if (initRowsCount && this.visibleRange.r2 >= this.nRowsCount - 1) {
+			t.nRowsCount = t.nRowsCount + 100;
+			this.scrollType |= AscCommonExcel.c_oAscScrollType.ScrollVertical;
+			//this._initRowsCount()
+			console.log("need share")
+		}
+
 		if ((reinitScrollY && !this.workbook.getSmoothScrolling()) || (reinitScrollY && this.workbook.getSmoothScrolling() && deltaCorrect !== currentScrollCorrect) ||
 			(isReverse && initRowsCount && this._initRowsCount()) || (this.workbook.getSmoothScrolling() && initRowsCount && this.nRowsCount !== gc_nMaxRow) || isNeedExpand()) {
 			this.scrollType |= AscCommonExcel.c_oAscScrollType.ScrollVertical;
@@ -10660,7 +10666,7 @@
 	//smooth scroll
 	WorksheetView.prototype.setScrollCorrect = function (val, needDraw) {
 		this.scrollCorrect = val;
-		console.log(" setScrollCorrect: " + val)
+		//console.log(" setScrollCorrect: " + val)
 		if (needDraw) {
 			this.draw();
 		}
