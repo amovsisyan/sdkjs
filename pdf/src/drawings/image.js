@@ -48,7 +48,9 @@
     CPdfImage.prototype.IsImage = function() {
         return true;
     };
-    
+    CPdfImage.prototype.copy = function () {
+        return this.convertToPdf();
+    };
     CPdfImage.prototype.IsInTextBox = function() {
         return false;
     };
@@ -79,7 +81,7 @@
         let X = pageObject.x;
         let Y = pageObject.y;
 
-        oDrawingObjects.OnMouseDown(e, X, Y, this.selectStartPage);
+        oDrawingObjects.OnMouseDown(e, X, Y, pageObject.index);
     };
     
     //////////////////////////////////////////////////////////////////////////////

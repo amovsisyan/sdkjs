@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -39,8 +39,7 @@
 	var HitInLine = AscFormat.HitInLine;
 
 	var isRealObject = AscCommon.isRealObject;
-	var History = AscCommon.History;
-
+	
 
 	window['AscDFH'].drawingsChangesMap[AscDFH.historyitem_GraphicFrameSetSpPr] = function (oClass, value) {
 		oClass.spPr = value;
@@ -237,7 +236,7 @@
 	};
 
 	CGraphicFrame.prototype.setSpPr = function (spPr) {
-		History.Add(new AscDFH.CChangesDrawingsObject(this, AscDFH.historyitem_GraphicFrameSetSpPr, this.spPr, spPr));
+		AscCommon.History.Add(new AscDFH.CChangesDrawingsObject(this, AscDFH.historyitem_GraphicFrameSetSpPr, this.spPr, spPr));
 		this.spPr = spPr;
 		if (spPr) {
 			spPr.setParent(this);
@@ -245,7 +244,7 @@
 	};
 
 	CGraphicFrame.prototype.setGraphicObject = function (graphicObject) {
-		History.Add(new AscDFH.CChangesDrawingsObject(this, AscDFH.historyitem_GraphicFrameSetGraphicObject, this.graphicObject, graphicObject));
+		AscCommon.History.Add(new AscDFH.CChangesDrawingsObject(this, AscDFH.historyitem_GraphicFrameSetGraphicObject, this.graphicObject, graphicObject));
 		this.graphicObject = graphicObject;
 		if (this.graphicObject) {
 			this.graphicObject.Index = 0;
@@ -254,17 +253,17 @@
 	};
 
 	CGraphicFrame.prototype.setNvSpPr = function (pr) {
-		History.Add(new AscDFH.CChangesDrawingsObject(this, AscDFH.historyitem_GraphicFrameSetSetNvSpPr, this.nvGraphicFramePr, pr));
+		AscCommon.History.Add(new AscDFH.CChangesDrawingsObject(this, AscDFH.historyitem_GraphicFrameSetSetNvSpPr, this.nvGraphicFramePr, pr));
 		this.nvGraphicFramePr = pr;
 	};
 
 	CGraphicFrame.prototype.setParent = function (parent) {
-		History.Add(new AscDFH.CChangesDrawingsObject(this, AscDFH.historyitem_GraphicFrameSetSetParent, this.parent, parent));
+		AscCommon.History.Add(new AscDFH.CChangesDrawingsObject(this, AscDFH.historyitem_GraphicFrameSetSetParent, this.parent, parent));
 		this.parent = parent;
 	};
 
 	CGraphicFrame.prototype.setGroup = function (group) {
-		History.Add(new AscDFH.CChangesDrawingsObject(this, AscDFH.historyitem_GraphicFrameSetSetGroup, this.group, group));
+		AscCommon.History.Add(new AscDFH.CChangesDrawingsObject(this, AscDFH.historyitem_GraphicFrameSetSetGroup, this.group, group));
 		this.group = group;
 	};
 
@@ -578,7 +577,7 @@
 
 	CGraphicFrame.prototype.Document_UpdateRulersState = function (margins) {
 		if (this.graphicObject) {
-			this.graphicObject.Document_UpdateRulersState(this.parent.num);
+			this.graphicObject.Document_UpdateRulersState(this.getParentNum());
 		}
 	};
 
@@ -666,12 +665,12 @@
 					editor.WordControl.m_oLogicDocument.CurPosition.X = tx;
 					editor.WordControl.m_oLogicDocument.CurPosition.Y = ty;
 				}
-				this.graphicObject.Selection_SetStart(tx, ty, this.parent.num, e);
+				this.graphicObject.Selection_SetStart(tx, ty, this.getParentNum(), e);
 			} else {
 				if (!this.graphicObject.IsSelectionUse()) {
 					this.graphicObject.StartSelectionFromCurPos();
 				}
-				this.graphicObject.Selection_SetEnd(tx, ty, this.parent.num, e);
+				this.graphicObject.Selection_SetEnd(tx, ty, this.getParentNum(), e);
 			}
 			this.graphicObject.RecalculateCurPos();
 
@@ -797,9 +796,9 @@
 				this.parent.graphicObjects.selectObject(this, 0);
 				this.parent.graphicObjects.selection.textSelection = this;
 			}
-			if (editor.WordControl.m_oLogicDocument.CurPage !== this.parent.num) {
-				editor.WordControl.m_oLogicDocument.Set_CurPage(this.parent.num);
-				editor.WordControl.GoToPage(this.parent.num);
+			if (editor.WordControl.m_oLogicDocument.CurPage !== this.getParentNum()) {
+				editor.WordControl.m_oLogicDocument.Set_CurPage(this.getParentNum());
+				editor.WordControl.GoToPage(this.getParentNum());
 			}
 		}
 	};
@@ -959,15 +958,21 @@
 			}
 			return this.compiledStyles[level];
 		} else {
-			return editor.WordControl.m_oLogicDocument.globalTableStyles;
-		}
-	};
+			let oLogicDoc;
+			if(Asc.editor.private_GetLogicDocument) {
+				oLogicDoc = Asc.editor.private_GetLogicDocument();
+			}
+			if(oLogicDoc) {
 
-	CGraphicFrame.prototype.Get_StartPage_Absolute = function () {
-		if (this.parent) {
-			return this.parent.num;
+				if(oLogicDoc.globalTableStyles) {
+					return oLogicDoc.globalTableStyles;
+				}
+				if(oLogicDoc.Get_Styles) {
+					return oLogicDoc.Get_Styles(level);
+				}
+			}
+			return this.Get_Styles(0);
 		}
-		return 0;
 	};
 
 	CGraphicFrame.prototype.Get_PageContentStartPos = function (PageNum) {
@@ -1196,7 +1201,11 @@
 		Graphic.GraphicData = new AscFormat.CT_GraphicalObjectData();
 		let nDrawingType = oDrawing.getObjectType();
 		if (nDrawingType === AscDFH.historyitem_type_ChartSpace) {
-			Graphic.GraphicData.Uri = "http://schemas.openxmlformats.org/drawingml/2006/chart";
+			if (oDrawing.isChartEx()) {
+				Graphic.GraphicData.Uri = "http://schemas.microsoft.com/office/drawing/2014/chartex";
+			} else {
+				Graphic.GraphicData.Uri = "http://schemas.openxmlformats.org/drawingml/2006/chart";
+			}
 		} else if (nDrawingType === AscDFH.historyitem_type_SlicerView) {
 			Graphic.GraphicData.Uri = "http://schemas.microsoft.com/office/drawing/2010/slicer";
 		} else if (nDrawingType === AscDFH.historyitem_type_TimelineSlicerView) {

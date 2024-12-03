@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -70,7 +70,7 @@
 	CRunPageNum.prototype.Measure = function (Context, TextPr)
 	{
 		this.textPr = TextPr;
-		this.SetValue(1, Asc.c_oAscNumberingFormat.Decimal);
+		this._measure();
 	};
 	CRunPageNum.prototype.SetNumFormat = function(format)
 	{
@@ -81,23 +81,10 @@
 		if (-1 !== this.numFormat)
 			numFormat = this.numFormat;
 		
-		this.value   = pageNum;
+		this.pageNum = pageNum;
 		this.numText = AscCommon.IntToNumberFormat(pageNum, numFormat);
-		AscWord.stringShaper.Shape(this.numText.codePointsArray(), this.textPr);
 		
-		this.graphemes = AscWord.stringShaper.GetGraphemes();
-		this.widths    = AscWord.stringShaper.GetWidths();
-		
-		let totalWidth = 0;
-		for (let index = 0; index < this.widths.length; ++index)
-		{
-			totalWidth += this.widths[index];
-		}
-		let fontSize = this.textPr.FontSize * this.textPr.getFontCoef();
-		totalWidth = (totalWidth * fontSize * AscWord.TEXTWIDTH_DIVIDER) | 0;
-		
-		this.Width        = totalWidth;
-		this.WidthVisible = totalWidth;
+		this._measure();
 	};
 	CRunPageNum.prototype.IsNeedSaveRecalculateObject = function()
 	{
@@ -134,7 +121,7 @@
 	};
 	CRunPageNum.prototype.GetValue = function()
 	{
-		return this.value;
+		return this.pageNum;
 	};
 	/**
 	 * Выставляем родительский класс
@@ -160,6 +147,27 @@
 	{
 		return this.numText;
 	};
+	CRunPageNum.prototype._measure = function()
+	{
+		if (!this.textPr)
+			return;
+		
+		AscWord.stringShaper.Shape(this.numText.codePointsArray(), this.textPr);
+		
+		this.graphemes = AscWord.stringShaper.GetGraphemes();
+		this.widths    = AscWord.stringShaper.GetWidths();
+		
+		let totalWidth = 0;
+		for (let index = 0; index < this.widths.length; ++index)
+		{
+			totalWidth += this.widths[index];
+		}
+		let fontSize = this.textPr.FontSize * this.textPr.getFontCoef();
+		totalWidth = (totalWidth * fontSize * AscWord.TEXTWIDTH_DIVIDER) | 0;
+		
+		this.Width        = totalWidth;
+		this.WidthVisible = totalWidth;
+	};
 
 	/**
 	 * @constructor
@@ -167,15 +175,9 @@
 	function PageNumRecalculateObject(type, graphemes, widths, totalWidth, isCopy)
 	{
 		this.type      = type;
-		this.graphemes = graphemes;
-		this.widths    = widths;
+		this.graphemes = graphemes && isCopy ? graphemes.slice() : graphemes;
+		this.widths    = widths && isCopy ? widths.slice() : widths;
 		this.width     = totalWidth;
-		
-		if (isCopy)
-		{
-			this.graphemes = graphemes.slice();
-			this.widths    = widths.slice();
-		}
 	}
 	
 	//--------------------------------------------------------export----------------------------------------------------

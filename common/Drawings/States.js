@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -46,7 +46,7 @@ var SNAP_DISTANCE = 1.27;
 
 
 
-function StartAddNewShape(drawingObjects, preset)
+function StartAddNewShape(drawingObjects, preset, nPlaceholderType, bVertical)
 {
     this.drawingObjects = drawingObjects;
     this.preset = preset;
@@ -58,7 +58,8 @@ function StartAddNewShape(drawingObjects, preset)
     this.startY = null;
 
     this.oldConnector = null;
-
+    this.placeholderType = nPlaceholderType;
+    this.bVertical = bVertical;
 }
 
 StartAddNewShape.prototype =
@@ -93,7 +94,7 @@ StartAddNewShape.prototype =
                 }
             }
         }
-        this.drawingObjects.arrPreTrackObjects.push(new AscFormat.NewShapeTrack(this.preset, dStartX, dStartY, this.drawingObjects.getTheme(), master, layout, slide, 0, this.drawingObjects));
+        this.drawingObjects.arrPreTrackObjects.push(new AscFormat.NewShapeTrack(this.preset, dStartX, dStartY, this.drawingObjects.getTheme(), master, layout, slide, 0, this.drawingObjects, this.placeholderType, this.bVertical));
         this.bStart = true;
         this.drawingObjects.swapTrackObjects();
     },
@@ -277,7 +278,7 @@ StartAddNewShape.prototype =
                                 }
                             }
                             else {
-                                oPresentation.DrawingDocument.OnRecalculatePage(oPresentation.CurPage, oCurSlide);
+                                oPresentation.DrawingDocument.OnRecalculateSlide(oPresentation.CurPage);
                             }
                         }
                     }
@@ -1043,6 +1044,7 @@ RotateState.prototype =
                 History.Create_NewPoint(AscDFH.historydescription_CommonDrawings_CopyCtrl);
                 for(i = 0; i < tracks.length; ++i)
                 {
+	                tracks[i].checkDrawingPartWithHistory();
                     copy = tracks[i].originalObject.copy(oCopyPr);
                     oIdMap[tracks[i].originalObject.Id] = copy.Id;
                     this.drawingObjects.drawingObjects.getWorksheetModel && copy.setWorksheet(this.drawingObjects.drawingObjects.getWorksheetModel());
@@ -1240,6 +1242,7 @@ RotateState.prototype =
                         this.drawingObjects.checkSelectedObjectsAndCallback(function () {
 
                                 for(i = 0; i < tracks.length; ++i){
+	                                tracks[i].checkDrawingPartWithHistory();
                                     tracks[i].trackEnd(false, bFlag);
                                 }
                                 if(tracks.length === 1 && tracks[0].chartSpace){

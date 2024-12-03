@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -80,9 +80,14 @@
         var pixels = ctx.getImageData(0, 0, w, h).data;
         var index = 0;
         var indexLast = 4 * w * h;
+
+        let whiteLimit = 255;
+        if (AscCommon.AscBrowser.isSafariMacOs)
+            whiteLimit = 250; // BUG 67674
+
         while (index < indexLast)
         {
-            if (pixels[index] !== 255 || pixels[index + 1] !== 255 || pixels[index + 2] !== 255)
+            if (pixels[index] < whiteLimit || pixels[index + 1] < whiteLimit || pixels[index + 2] < whiteLimit)
                 break;
             index += 4;
         }
@@ -140,7 +145,13 @@
         this.page.draw(ctx, this.pageRect.x, this.pageRect.y - offsetV, this.pageRect.w, this.pageRect.h);
 
         var lineW, offsetW, color = undefined;
-        if (this.num === doc.selectPage)
+        if (doc.checkPageLocked(this.num))
+        {
+            lineW = Math.max(1, (PageStyle.hoverColorWidth * AscCommon.AscBrowser.retinaPixelRatio) >> 0);
+            offsetW = PageStyle.hoverColorOffset + 0.5 * lineW;
+            color = PageStyle.lockedColor;
+        }
+        else if (doc.selectedPages.includes(this.num))
         {
             lineW = Math.max(1, (PageStyle.selectColorWidth * AscCommon.AscBrowser.retinaPixelRatio) >> 0);
             offsetW = PageStyle.selectColorOffset + 0.5 * lineW;
@@ -162,7 +173,7 @@
 
         // currentRect
         var currentRect = null;
-        if (PageStyle.isDrawCurrentRect && doc.selectPage === this.num)
+        if (PageStyle.isDrawCurrentRect && doc.selectPageRect.num === this.num)
             currentRect = doc.selectPageRect;
         if (currentRect)
         {
@@ -230,7 +241,9 @@
             var pH = (drPage.page.height * zoom) >> 0;
             if (isLandscape)
             {
-                [pW, pH] = [pH, pW];
+                let tmp = pW;
+                pW = pH;
+                pH = tmp;
             }
 
             var curPageHeight = pH + PageStyle.numberFontOffset + PageStyle.numberFontHeight;
@@ -311,14 +324,21 @@
         this.scrollWidth = 10;
         this.m_oScrollVerApi = null;
 
-        this.selectPage = -1;
         this.selectPageRect = null;
+        this.selectedPages = [];
         this.hoverPage = -1;
 
+        this.keepSelectedPages = false; // сохраняет селект при updateCurrentPage, например после ворота страниц
         this.handlers = {};
 
         this.createComponents();
     }
+
+    // COLLABORATION
+    CDocument.prototype.checkPageLocked = function(nIdx)
+    {
+        return this.viewer.pagesInfo.pages[nIdx].IsLocked();
+    };
 
     // INTERFACE
     CDocument.prototype.repaint = function()
@@ -473,6 +493,11 @@
     // очередь задач - нужно ли перерисоваться и/или перерисовать страницу
     CDocument.prototype.checkTasks = function(isViewerTask)
     {
+		let pdfDoc = this.viewer.getPDFDoc();
+	
+		if (pdfDoc.fontLoader.isWorking() || AscCommon.CollaborativeEditing.waitingImagesForLoad)
+			return true;
+		
         var isNeedTasks = false;
         if (!this.isEnabled)
             return isNeedTasks;
@@ -501,6 +526,9 @@
 
             if (needPage)
             {
+				if (!this.viewer._checkFontsOnPages(needPage.num, needPage.num))
+					return true;
+				
                 isNeedTasks = true;
                 let isLandscape = this.viewer.isLandscapePage(needPage.num);
                 let angle       = this.viewer.getPageRotate(needPage.num);
@@ -550,10 +578,10 @@
     CDocument.prototype.updateCurrentPage = function(pageObject)
     {
         this.selectPageRect = pageObject;
-        if (this.selectPage != pageObject.num)
+        if (true !== this.keepSelectedPages && false == this.selectedPages.includes(pageObject.num))
         {
-            this.selectPage = pageObject.num;
-            var drPage = this.getDrawingPage(this.selectPage);
+            this.selectedPages = [pageObject.num];
+            var drPage = this.getDrawingPage(pageObject.num);
             if (!drPage)
                 return;
 
@@ -571,6 +599,11 @@
         }
         else if (PageStyle.isDrawCurrentRect)
             this.repaint();
+
+        this.keepSelectedPages = false;
+    };
+    CDocument.prototype.getSelectedPages = function() {
+        return this.selectedPages;
     };
 
     // сама отрисовка
@@ -912,16 +945,48 @@
         AscCommon.global_mouseEvent.LockMouse();
         this.viewer.isFocusOnThumbnails = true;
         
-        var drPage = this.getPageByCoords(AscCommon.global_mouseEvent.X, AscCommon.global_mouseEvent.Y);
-        if (drPage && drPage.num !== this.selectPage)
+        let drPage = this.getPageByCoords(AscCommon.global_mouseEvent.X, AscCommon.global_mouseEvent.Y);
+        if (drPage)
         {
-            this.viewer.navigateToPage(drPage.num);
+            if (true == e.shiftKey) {
+                let nMinPage = Math.min.apply(null, this.selectedPages.concat([drPage.num]))
+                let nMaxPage = Math.max.apply(null, this.selectedPages.concat([drPage.num]))
+
+                this.resetSelection();
+                for (let i = nMinPage; i <= nMaxPage; i++) {
+                    this.selectedPages.push(i);
+                }
+                this._paint();
+            }
+            else if (true == e.ctrlKey) {
+                if (!this.selectedPages.includes(drPage.num)) {
+                    this.selectedPages.push(drPage.num);
+                    this._paint();
+                }
+                else {
+                    this.selectedPages.splice(this.selectedPages.indexOf(drPage.num), 1);
+                    this._paint();
+                }
+            }
+            else {
+                if (!this.selectedPages.includes(drPage.num) || (this.selectedPages.length > 1 && e.button != 2)) {
+                    this.resetSelection();
+                    this.viewer.navigateToPage(drPage.num);
+
+                    if (this.selectedPages.length == 0) {
+                        this.selectedPages.push(drPage.num);
+                        this._paint();
+                    }
+                }
+            }
         }
 
         AscCommon.stopEvent(e);
         return false;
     };
-    
+    CDocument.prototype.resetSelection = function() {
+        this.selectedPages.length = 0;
+    };
     CDocument.prototype.onMouseUp = function(e)
     {
         AscCommon.check_MouseUpEvent(e);
@@ -1031,6 +1096,7 @@
     CDocument.prototype.updateSkin = function()
     {
         ThumbnailsStyle.backgroundColor = AscCommon.GlobalSkin.BackgroundColorThumbnails;
+        PageStyle.lockedColor = AscCommon.GlobalSkin.ThumbnailsLockColor;
         PageStyle.hoverColor = AscCommon.GlobalSkin.ThumbnailsPageOutlineHover;
         PageStyle.selectColor = AscCommon.GlobalSkin.ThumbnailsPageOutlineActive;
         PageStyle.numberColor = AscCommon.GlobalSkin.ThumbnailsPageNumberText;

@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -36,12 +36,16 @@
 {
 	/**
 	 * Класс представляющий элемент "количество страниц"
+	 * @param pageCount {number}
 	 * @constructor
-	 * @extends {AscWord.CRunElementBase}
+	 * @extends {AscWord.CRunPageNum}
 	 */
-	function CRunPagesCount()
+	function CRunPagesCount(pageCount)
 	{
 		AscWord.CRunPageNum.call(this);
+		
+		if (undefined !== pageCount)
+			this.UpdatePageCount(pageCount);
 	}
 	CRunPagesCount.prototype = Object.create(AscWord.CRunPageNum.prototype);
 	CRunPagesCount.prototype.constructor = CRunPagesCount;

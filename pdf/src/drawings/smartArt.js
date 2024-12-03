@@ -86,14 +86,7 @@
         let X = pageObject.x;
         let Y = pageObject.y;
 
-        // if ((this.hitInInnerArea(X, Y) && !this.hitInTextRect(X, Y)) || this.hitToHandles(X, Y) != -1 || this.hitInPath(X, Y)) {
-        //     this.SetInTextBox(false);
-        // }
-        // else {
-        //     this.SetInTextBox(true);
-        // }
-
-        oDrawingObjects.OnMouseDown(e, X, Y, this.selectStartPage);
+        oDrawingObjects.OnMouseDown(e, X, Y, pageObject.index);
     };
     CPdfSmartArt.prototype.AddNewParagraph = function() {
         this.GetDocContent().AddNewParagraph();
@@ -102,38 +95,8 @@
     CPdfSmartArt.prototype.GetDocContent = function() {
         return this.getTargetDocContent();
     };
-    CPdfSmartArt.prototype.SetInTextBox = function(bIn) {
-        this.isInTextBox = bIn;
-    };
-    CPdfSmartArt.prototype.IsInTextBox = function() {
-        return this.isInTextBox;
-    };
     CPdfSmartArt.prototype.SelectAllText = function() {
         this.GetDocContent().SelectAll();
-    };
-    /**
-     * Exit from this annot.
-     * @memberof CTextField
-     * @typeofeditors ["PDF"]
-     */
-    CPdfSmartArt.prototype.Blur = function() {
-        let oDoc        = this.GetDocument();
-        let oContent    = this.GetDocContent();
-        let oPara       = oContent.GetElement(0);
-
-        oPara.SetApplyToAll(true);
-        let sText = oPara.GetSelectedText(true, {NewLine: true});
-        oPara.SetApplyToAll(false);
-
-        this.SetInTextBox(false);
-
-        if (this.GetContents() != sText) {
-            oDoc.CreateNewHistoryPoint();
-            this.SetContents(sText);
-            oDoc.TurnOffHistory();
-        }
-        
-        oDoc.GetDrawingDocument().TargetEnd();
     };
 
     CPdfSmartArt.prototype.onMouseUp = function(x, y, e) {
@@ -374,15 +337,13 @@
                             }
                             content.RecalculateCurPos();
 
-                            drawing_document.TargetStart();
-                            drawing_document.TargetShow();
+                            drawing_document.TargetStart(true);
                         }
                     }
                 } else {
                     content.RecalculateCurPos();
 
-                    drawing_document.TargetStart();
-                    drawing_document.TargetShow();
+                    drawing_document.TargetStart(true);
                 }
             } else {
                 drawing_document.UpdateTargetTransform(new AscCommon.CMatrix());

@@ -48,7 +48,49 @@
     CPdfGraphicFrame.prototype.IsGraphicFrame = function() {
         return true;
     };
+    CPdfGraphicFrame.prototype.copy = function (oPr) {
+        let ret = new CPdfGraphicFrame();
+        let oDoc = Asc.editor.getPDFDoc();
+        if (this.graphicObject) {
+            ret.setGraphicObject(this.graphicObject.Copy(ret));
+            if (oDoc && isRealObject(oDoc.globalTableStyles)) {
+                ret.graphicObject.Reset(0, 0, this.graphicObject.XLimit, this.graphicObject.YLimit, ret.graphicObject.PageNum);
+            }
+        }
+        if (this.nvGraphicFramePr) {
+            ret.setNvSpPr(this.nvGraphicFramePr.createDuplicate());
+        }
+        if (this.spPr) {
+            ret.setSpPr(this.spPr.createDuplicate());
+            ret.spPr.setParent(ret);
+        }
+        ret.setBDeleted(false);
+        if (this.macro !== null) {
+            ret.setMacro(this.macro);
+        }
+        if (this.textLink !== null) {
+            ret.setTextLink(this.textLink);
+        }
+        if (!this.recalcInfo.recalculateTable && !this.recalcInfo.recalculateSizes && !this.recalcInfo.recalculateTransform) {
+            if (!oPr || false !== oPr.cacheImage) {
+                ret.cachedImage = this.getBase64Img();
+                ret.cachedPixH = this.cachedPixH;
+                ret.cachedPixW = this.cachedPixW;
+            }
+        }
 
+        ret._page = this._page; 
+        return ret;
+    };
+    CPdfGraphicFrame.prototype.handleUpdateRot = function() {
+        this.SetNeedRecalc(true);
+    };
+    CPdfGraphicFrame.prototype.Get_PageContentStartPos = function(nPage) {
+        return this.GetDocument().Get_PageLimits(nPage);
+    };
+    CPdfGraphicFrame.prototype.Get_PageContentStartPos2 = function(nPage) {
+        return this.Get_PageContentStartPos(nPage);
+    };
     CPdfGraphicFrame.prototype.GetDocContent = function() {
         return this.getDocContent();
     };
@@ -63,10 +105,8 @@
      * @typeofeditors ["PDF"]
      */
     CPdfGraphicFrame.prototype.Remove = function(nDirection, isCtrlKey) {
-        let oDoc = this.GetDocument();
-        oDoc.CreateNewHistoryPoint({objects: [this]});
-
         let oContent = this.GetDocContent();
+
         if (oContent) {
             oContent.Remove(nDirection, true, false, false, isCtrlKey);
         }
@@ -120,15 +160,41 @@
         this.updateTransformMatrix();
         this.SetNeedRecalc(false);
     };
-    CPdfGraphicFrame.prototype.SetInTextBox = function(bIn) {
-        this.isInTextBox = bIn;
+    CPdfGraphicFrame.prototype.MoveCursorToCell = function(bNext) {
+        this.graphicObject.MoveCursorToCell(bNext);
+    };
+    CPdfGraphicFrame.prototype.checkExtentsByDocContent = function() {
+        this.Recalculate();
+        let oXfrm = this.getXfrm();
+        if (Math.abs(oXfrm.extY - this.extY) > 0.001) {
+            let nRot = this.GetRot();
+            let oldExtX = oXfrm.extX;
+            let oldExtY = oXfrm.extY;
+            let oldOffX = oXfrm.offX;
+            let oldOffY = oXfrm.offY;
+
+            let deltaX = -(oldExtX - this.extX) / 2;
+            let deltaY = -(oldExtY - this.extY) / 2;
+
+            let _sin = Math.sin(nRot);
+            let _cos = Math.cos(nRot);
+
+            let newOffX = oldOffX + (deltaX*_cos - deltaY*_sin) - deltaX;
+            let newOffY = oldOffY + (deltaX*_sin + deltaY*_cos) - deltaY;
+
+            oXfrm.setOffX(newOffX);
+            oXfrm.setOffY(newOffY);
+
+            oXfrm.setExtX(this.extX);
+            oXfrm.setExtY(this.extY);
+        }
     };
     CPdfGraphicFrame.prototype.SetNeedRecalc = function(bRecalc, bSkipAddToRedraw) {
         if (bRecalc == false) {
             this._needRecalc = false;
         }
         else {
-            this.GetDocument().SetNeedUpdateTarget(true);
+            // this.GetDocument().SetNeedUpdateTarget(true);
             this._needRecalc = true;
             this.recalcInfo.recalculateTable = true;
            
@@ -149,14 +215,7 @@
         let X = pageObject.x;
         let Y = pageObject.y;
 
-        if (this.hitInBoundingRect(X, Y) || this.hitToHandles(X, Y) != -1 || this.hitInPath(X, Y)) {
-            this.SetInTextBox(false);
-        }
-        else {
-            this.SetInTextBox(true);
-        }
-
-        oDrawingObjects.OnMouseDown(e, X, Y, this.selectStartPage);
+        oDrawingObjects.OnMouseDown(e, X, Y, pageObject.index);
     };
     
     CPdfGraphicFrame.prototype.onMouseUp = function(x, y, e) {
@@ -325,7 +384,7 @@
             selected_objects = drawingObjectsController ? drawingObjectsController.selectedObjects : [];
         else
             selected_objects = this.group.getMainGroup().selectedObjects;
-        for (let i = 0; i < selected_objects.length; ++i) {
+        for (var i = 0; i < selected_objects.length; ++i) {
             if (selected_objects[i] === this)
                 break;
         }
@@ -349,7 +408,7 @@
 			} else {
 				graphicObject.RecalculateCurPos();
 				oDrDoc.UpdateTargetTransform(this.transform);
-				oDrDoc.TargetShow();
+				oDrDoc.TargetStart(true);
 			}
 		} else {
 			oDrDoc.UpdateTargetTransform(null);

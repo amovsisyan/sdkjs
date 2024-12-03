@@ -84,48 +84,10 @@
         let X = pageObject.x;
         let Y = pageObject.y;
 
-        if ((this.hitInInnerArea(X, Y) && !this.hitInTextRect(X, Y)) || this.hitToHandles(X, Y) != -1 || this.hitInPath(X, Y)) {
-            this.SetInTextBox(false);
-        }
-        else {
-            this.SetInTextBox(true);
-            oDoc.SelectionSetStart(x, y, e);
-        }
-
-        oDrawingObjects.OnMouseDown(e, X, Y, this.selectStartPage);
-    };
-    CPdfChart.prototype.SetInTextBox = function(bIn) {
-        this.isInTextBox = bIn;
-    };
-    CPdfChart.prototype.IsInTextBox = function() {
-        return this.isInTextBox;
+        oDrawingObjects.OnMouseDown(e, X, Y, pageObject.index);
     };
     CPdfChart.prototype.SelectAllText = function() {
         this.GetDocContent().SelectAll();
-    };
-    /**
-     * Exit from this annot.
-     * @memberof CTextField
-     * @typeofeditors ["PDF"]
-     */
-    CPdfChart.prototype.Blur = function() {
-        let oDoc        = this.GetDocument();
-        let oContent    = this.GetDocContent();
-        let oPara       = oContent.GetElement(0);
-
-        oPara.SetApplyToAll(true);
-        let sText = oPara.GetSelectedText(true, {NewLine: true});
-        oPara.SetApplyToAll(false);
-
-        this.SetInTextBox(false);
-
-        if (this.GetContents() != sText) {
-            oDoc.CreateNewHistoryPoint();
-            this.SetContents(sText);
-            oDoc.TurnOffHistory();
-        }
-        
-        oDoc.GetDrawingDocument().TargetEnd();
     };
 
     CPdfChart.prototype.onMouseUp = function(x, y, e) {
@@ -166,7 +128,6 @@
         false == this.IsInTextBox() && oContent.SetApplyToAll(false);
 
         this.SetNeedRecalc(true);
-        this.SetNeedUpdateRC(true);
     };
     CPdfChart.prototype.SetAlign = function(nType) {
         let oContent = this.GetDocContent();
@@ -221,7 +182,6 @@
     CPdfChart.prototype.IncreaseDecreaseFontSize = function(bIncrease) {
         this.GetDocContent().IncreaseDecreaseFontSize(bIncrease);
         this.SetNeedRecalc(true);
-        this.SetNeedUpdateRC(true);
     };
     CPdfChart.prototype.SetSpacing = function(nSpacing) {
         this.SetParaTextPr(new AscCommonWord.ParaTextPr({Spacing : nSpacing}));
@@ -341,9 +301,6 @@
     ///// Overrides
     /////////////////////////////////////////////////////////////////////////////
     
-    CPdfChart.prototype.Get_AbsolutePage = function() {
-        return this.GetPage();
-    };
     CPdfChart.prototype.getLogicDocument = function() {
         return this.GetDocument();
     };

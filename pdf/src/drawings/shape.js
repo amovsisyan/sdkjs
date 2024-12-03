@@ -36,24 +36,23 @@
 	 * Class representing a pdf text shape.
 	 * @constructor
     */
-    function CPdfShape()
-    {
+    function CPdfShape() {
         AscFormat.CShape.call(this);
     }
     
     CPdfShape.prototype.constructor = CPdfShape;
     CPdfShape.prototype = Object.create(AscFormat.CShape.prototype);
     Object.assign(CPdfShape.prototype, AscPDF.PdfDrawingPrototype.prototype);
-
-    CPdfShape.prototype.IsTextShape = function() {
+    
+    CPdfShape.prototype.IsShape = function() {
         return true;
     };
     CPdfShape.prototype.ShouldDrawImaginaryBorder = function(graphicsWord) {
         let bDraw = !!(this.spPr && this.spPr.hasNoFill() && !(this.pen && this.pen.Fill && this.pen.Fill.fill && !(this.pen.Fill.fill instanceof AscFormat.CNoFill)));
-        bDraw &&= this.IsFromScan();
-        bDraw &&= !Asc.editor.isRestrictionView();
-        bDraw &&= !graphicsWord.isThumbnails;
-
+        bDraw = bDraw && this.IsFromScan();
+        bDraw = bDraw && !Asc.editor.isRestrictionView();
+        bDraw = bDraw && !graphicsWord.isThumbnails;
+    
         return bDraw;
     };
     CPdfShape.prototype.CheckTextOnOpen = function() {
@@ -64,18 +63,51 @@
             oContent.SetApplyToAll(false);
         }
     };
+    CPdfShape.prototype.canRotate = function () {
+        if (this.cropObject) {
+            return false;
+        }
+        
+        if (this.signatureLine) {
+            return false;
+        }
+
+        if (!this.canEdit()) {
+			return false;
+		}
+
+        if (this.group && this.group.IsAnnot()) {
+            return false;
+        }
+
+		return this.getNoRot() === false;
+    };
     CPdfShape.prototype.Recalculate = function() {
         if (this.IsNeedRecalc() == false)
             return;
 
-        this.recalcGeometry();
-        this.recalculateContent();
-        this.checkExtentsByDocContent(true, true);
-        this.recalculate();
         this.recalculateTransform();
         this.updateTransformMatrix();
+        this.recalculate();
         this.recalculateShdw();
         this.SetNeedRecalc(false);
+    };
+    CPdfShape.prototype.recalculateBounds = function() {
+        let boundsChecker = new AscFormat.CSlideBoundsChecker();
+        
+        // boundsChecker.CheckLineWidth(this);
+        boundsChecker.DO_NOT_DRAW_ANIM_LABEL = true;
+        this.draw(boundsChecker);
+        boundsChecker.CorrectBounds();
+
+        this.bounds.x = boundsChecker.Bounds.min_x;
+        this.bounds.y = boundsChecker.Bounds.min_y;
+        this.bounds.l = boundsChecker.Bounds.min_x;
+        this.bounds.t = boundsChecker.Bounds.min_y;
+        this.bounds.r = boundsChecker.Bounds.max_x;
+        this.bounds.b = boundsChecker.Bounds.max_y;
+        this.bounds.w = boundsChecker.Bounds.max_x - boundsChecker.Bounds.min_x;
+        this.bounds.h = boundsChecker.Bounds.max_y - boundsChecker.Bounds.min_y;
     };
     CPdfShape.prototype.onMouseDown = function(x, y, e) {
         let oDoc                = this.GetDocument();
@@ -91,14 +123,7 @@
         let X = pageObject.x;
         let Y = pageObject.y;
 
-        if ((this.hitInInnerArea(X, Y) && !this.hitInTextRect(X, Y)) || this.hitToHandles(X, Y) != -1 || this.hitInPath(X, Y)) {
-            this.SetInTextBox(false);
-        }
-        else {
-            this.SetInTextBox(true);
-        }
-
-        oDrawingObjects.OnMouseDown(e, X, Y, this.selectStartPage);
+        oDrawingObjects.OnMouseDown(e, X, Y, pageObject.index);
 		let docContent = this.GetDocContent();
 		if (docContent)
 			docContent.RecalculateCurPos();
@@ -107,11 +132,7 @@
         return this.getDocContent();
     };
     CPdfShape.prototype.createTextBody = function () {
-        let oDoc = this.GetDocument();
         AscFormat.CShape.prototype.createTextBody.call(this);
-        if (oDoc && oDoc.GetActiveObject() == this) {
-            this.SetInTextBox(true);
-        }
         this.SetNeedRecalc(true);
     };
 
@@ -161,35 +182,40 @@
 			oContent.RecalculateCurPos();
 		}
     };
-    CPdfShape.prototype.GetAllFonts = function(fontMap) {
-        let oContent = this.GetDocContent();
-
-        fontMap = fontMap || {};
-
-        if (!oContent)
-            return fontMap;
-
-        let oPara;
-        for (let nPara = 0, nCount = oContent.GetElementsCount(); nPara < nCount; nPara++) {
-            oPara = oContent.GetElement(nPara);
-            oPara.Get_CompiledPr().TextPr.Document_Get_AllFontNames(fontMap);
-
-            let oRun;
-            for (let nRun = 0, nRunCount = oPara.GetElementsCount(); nRun < nRunCount; nRun++) {
-                oRun = oPara.GetElement(nRun);
-                oRun.Get_CompiledTextPr().Document_Get_AllFontNames(fontMap);
-            }
-        }
-        
-        delete fontMap["+mj-lt"];
-        delete fontMap["+mn-lt"];
-        delete fontMap["+mj-ea"];
-        delete fontMap["+mn-ea"];
-        delete fontMap["+mj-cs"];
-        delete fontMap["+mn-cs"];
-        
-        return fontMap;
-    };
+	CPdfShape.prototype.GetAllFonts = function(fontMap) {
+		fontMap = fontMap || {};
+		
+		let docContent = this.GetDocContent();
+		if (!docContent)
+			return fontMap;
+		
+		for (let i = 0, count = docContent.GetElementsCount(); i < count; ++i) {
+			let para = docContent.GetElement(i);
+			if (!para || !para.IsParagraph())
+				continue;
+			
+			para.Get_CompiledPr2(false).TextPr.Document_Get_AllFontNames(fontMap);
+			
+			if (para.Pr.Bullet)
+				para.Pr.Bullet.Get_AllFontNames(fontMap);
+			
+			if (para.Pr.DefaultRunPr)
+				para.Pr.DefaultRunPr.Document_Get_AllFontNames(fontMap);
+			
+			para.CheckRunContent(function(run) {
+				run.Get_CompiledPr(false).Document_Get_AllFontNames(fontMap);
+			});
+		}
+		
+		delete fontMap["+mj-lt"];
+		delete fontMap["+mn-lt"];
+		delete fontMap["+mj-ea"];
+		delete fontMap["+mn-ea"];
+		delete fontMap["+mj-cs"];
+		delete fontMap["+mn-cs"];
+		
+		return fontMap;
+	};
 
     CPdfShape.prototype.hitToAdjustment = function (x, y) {
         if (!AscFormat.canSelectDrawing(this)) {
@@ -288,15 +314,13 @@
                             }
                             content.RecalculateCurPos();
 
-                            drawing_document.TargetStart();
-                            drawing_document.TargetShow();
+                            drawing_document.TargetStart(true);
                         }
                     }
                 } else {
                     content.RecalculateCurPos();
 
-                    drawing_document.TargetStart();
-                    drawing_document.TargetShow();
+                    drawing_document.TargetStart(true);
                 }
             } else {
                 drawing_document.UpdateTargetTransform(new AscCommon.CMatrix());
@@ -333,6 +357,11 @@
         };
         this.compiledStyles = [];
         this.lockType = AscCommon.c_oAscLockTypes.kLockTypeNone;
+    };
+    CPdfShape.prototype.copy = function (oPr) {
+        let copy = new CPdfShape();
+        this.fillObject(copy, oPr);
+        return copy;
     };
     window["AscPDF"].CPdfShape = CPdfShape;
 })();

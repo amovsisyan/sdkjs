@@ -1,5 +1,5 @@
 /*
- * (c) Copyright Ascensio System SIA 2010-2023
+ * (c) Copyright Ascensio System SIA 2010-2024
  *
  * This program is a free software product. You can redistribute it and/or
  * modify it under the terms of the GNU Affero General Public License (AGPL)
@@ -150,6 +150,7 @@
     	this.isUse3d = false;
     	this.cacheManager = null;
     	this.logging = true;
+        this.type = -1;
 
     	this.Selection = {
             Page1 : 0,
@@ -160,6 +161,7 @@
             Line2 : 0,
             Glyph2 : 0,
 
+            quads: [],
             IsSelection : false
         };
 
@@ -182,11 +184,15 @@
     };
     CFile.prototype.getFileBinary = function()
     {
-        return this.nativeFile ? this.nativeFile["getFileAsBase64"]() : null;
+        return this.nativeFile ? this.nativeFile["getFileBinary"]() : null;
     };
-    CFile.prototype.memory = function()
+    CFile.prototype.getUint8Array = function(ptr, len)
     {
-        return this.nativeFile ? this.nativeFile["memory"]() : null;
+        return this.nativeFile ? this.nativeFile["getUint8Array"](ptr, len) : null;
+    };
+    CFile.prototype.getUint8ClampedArray = function(ptr, len)
+    {
+        return this.nativeFile ? this.nativeFile["getUint8ClampedArray"](ptr, len) : null;
     };
     CFile.prototype.free = function(pointer)
     {
@@ -260,6 +266,12 @@
         image.requestHeight = requestH;
         return image;
     };
+    CFile.prototype.addPage = function(pageIndex, pageObj) {
+        return this.nativeFile["addPage"](pageIndex, pageObj);
+    };
+    CFile.prototype.removePage = function(pageIndex) {
+        return this.nativeFile["removePage"](pageIndex);
+    };
     CFile.prototype.getPageWidth = function(nPage) {
         return this.pages[nPage].W;
     };
@@ -273,7 +285,7 @@
 
     CFile.prototype.getText = function(pageIndex)
     {
-        return this.nativeFile ? this.nativeFile["getGlyphs"](pageIndex) : [];
+        return this.nativeFile && undefined != pageIndex ? this.nativeFile["getGlyphs"](pageIndex) : [];
     };
 
     CFile.prototype.destroyText = function()
@@ -319,7 +331,7 @@
         }
         
         var ctx = canvas.getContext("2d");
-        var mappedBuffer = new Uint8ClampedArray(this.memory().buffer, pixels, 4 * width * height);
+        var mappedBuffer = this.getUint8ClampedArray(pixels, 4 * width * height);
         var imageData = null;
         if (supportImageDataConstructor)
         {
@@ -404,7 +416,7 @@ void main() {\n\
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(this.memory().buffer, pixels, 4 * width * height));
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, this.getUint8Array(pixels, 4 * width * height));
 
         if (gl.getError() != gl.NONE)
             throw new Error('FAIL: creating webgl image texture failed');
@@ -547,9 +559,8 @@ void main() {\n\
 
     CFile.prototype.onMouseDown = function(pageIndex, x, y)
     {
-        if (this.pages[pageIndex].isConvertedToShapes) {
+        if (this.pages[pageIndex].isRecognized)
             return;
-        }
         
         let oDoc = this.viewer.getPDFDoc();
         var ret = this.getNearestPos(pageIndex, x, y);
@@ -564,6 +575,7 @@ void main() {\n\
         sel.Glyph2 = ret.Glyph;
 
         sel.IsSelection = true;
+        this.cacheSelectionQuads([]);
 
         this.onUpdateSelection();
         this.onUpdateOverlay();
@@ -577,11 +589,13 @@ void main() {\n\
 			Page2 : 0,
 			Line2 : 0,
 			Glyph2 : 0,
+            quads: [],
 
 			IsSelection : false
 		}
 
-        this.viewer.getPDFDoc().TextSelectTrackHandler.Update()
+        this.cacheSelectionQuads([]);
+        this.viewer.getPDFDoc().TextSelectTrackHandler.Update();
     };
     CFile.prototype.isSelectionUse = function() {
         return !(this.Selection.Page1 == this.Selection.Page2 && this.Selection.Glyph1 == this.Selection.Glyph2 && this.Selection.Line1 == this.Selection.Line2);
@@ -607,37 +621,36 @@ void main() {\n\
 
     CFile.prototype.onMouseUp = function()
     {
-        this.viewer.getPDFDoc().TextSelectTrackHandler.Update()
         this.Selection.IsSelection = false;
+        this.viewer.getPDFDoc().TextSelectTrackHandler.Update(true);
         this.onUpdateSelection();
         this.onUpdateOverlay();
 
         if (this.viewer.Api.isMarkerFormat) {
-            let oDoc = this.viewer.getPDFDoc();
-            let oColor = oDoc.GetMarkerColor(this.viewer.Api.curMarkerType);
-            oDoc.CreateNewHistoryPoint();
-            switch (this.viewer.Api.curMarkerType) {
-				case AscPDF.ANNOTATIONS_TYPES.Highlight:
-					this.viewer.Api.SetHighlight(oColor.r, oColor.g, oColor.b, oColor.a);
-					break;
-				case AscPDF.ANNOTATIONS_TYPES.Underline:
-					this.viewer.Api.SetUnderline(oColor.r, oColor.g, oColor.b, oColor.a);
-					break;
-				case AscPDF.ANNOTATIONS_TYPES.Strikeout:
-					this.viewer.Api.SetStrikeout(oColor.r, oColor.g, oColor.b, oColor.a);
-					break;
-			}
+            let oDoc    = this.viewer.getPDFDoc();
+            let oViewer = this.viewer;
+            let oColor  = oDoc.GetMarkerColor(oViewer.Api.curMarkerType);
 
-            if (AscCommon.History.Is_LastPointEmpty())
-                AscCommon.History.Remove_LastPoint();
-            oDoc.TurnOffHistory();
+            oDoc.DoAction(function() {
+                switch (oViewer.Api.curMarkerType) {
+                    case AscPDF.ANNOTATIONS_TYPES.Highlight:
+                        oViewer.Api.SetHighlight(oColor.r, oColor.g, oColor.b, oColor.a);
+                        break;
+                    case AscPDF.ANNOTATIONS_TYPES.Underline:
+                        oViewer.Api.SetUnderline(oColor.r, oColor.g, oColor.b, oColor.a);
+                        break;
+                    case AscPDF.ANNOTATIONS_TYPES.Strikeout:
+                        oViewer.Api.SetStrikeout(oColor.r, oColor.g, oColor.b, oColor.a);
+                        break;
+                }
+            }, AscDFH.historydescription_Pdf_AddHighlightAnnot);
         }
     };
 
     CFile.prototype.getPageTextStream = function(pageIndex)
     {
         var textCommands = this.pages[pageIndex].text;
-        if (!textCommands)
+        if (!textCommands || 0 === textCommands.length)
             return null;
 
         return new TextStreamReader(textCommands, textCommands.length);
@@ -648,6 +661,13 @@ void main() {\n\
         var stream = this.getPageTextStream(pageIndex);
         if (!stream)
             return { Line : -1, Glyph : -1 };
+
+        if (this.type === 2)
+        {
+            let k = 72 / 96;
+            x *= k;
+            y *= k;
+        }
 
         // textline parameters
         var _line = -1;
@@ -1030,7 +1050,8 @@ void main() {\n\
             Line1: oNearesPos.Line,
             Line2: oNearesPos.Line,
             Page1: pageIndex,
-            Page2: pageIndex
+            Page2: pageIndex,
+            quads: []
         }
 
         let isOnSpace       = false;
@@ -1100,18 +1121,103 @@ void main() {\n\
             Line1: oNearesPos.Line,
             Line2: oNearesPos.Line,
             Page1: pageIndex,
-            Page2: pageIndex
+            Page2: pageIndex,
+            quads: []
         }
 
         this.Selection = oSelectionInfo;
         this.onUpdateOverlay();
     };
+    CFile.prototype.cacheSelectionQuads = function(aQuads) {
+        this.Selection.quads = aQuads;
+    };
     CFile.prototype.getSelectionQuads = function() {
         let aInfo = [];
+        
+        if (false == this.isSelectionUse()) {
+            this.cacheSelectionQuads(aInfo);
+            return aInfo;
+        }
+        else if (this.Selection.quads.length != 0) {
+            return this.Selection.quads;
+        }
+        
+        let sel = this.Selection;
+        let Page1 = 0;
+        let Page2 = 0;
+        let Line1 = 0;
+        let Line2 = 0;
+        let Glyph1 = 0;
+        let Glyph2 = 0;
 
-        for (let i = this.Selection.Page1; i <= this.Selection.Page2; i++) {
+        if (sel.Page2 > sel.Page1)
+        {
+            Page1 = sel.Page1;
+            Page2 = sel.Page2;
+            Line1 = sel.Line1;
+            Line2 = sel.Line2;
+            Glyph1 = sel.Glyph1;
+            Glyph2 = sel.Glyph2;
+        }
+        else if (sel.Page2 < sel.Page1)
+        {
+            Page1 = sel.Page2;
+            Page2 = sel.Page1;
+            Line1 = sel.Line2;
+            Line2 = sel.Line1;
+            Glyph1 = sel.Glyph2;
+            Glyph2 = sel.Glyph1;
+        }
+        else if (sel.Page1 === sel.Page2)
+        {
+            Page1 = sel.Page1;
+            Page2 = sel.Page2;
+
+            if (sel.Line1 < sel.Line2)
+            {
+                Line1 = sel.Line1;
+                Line2 = sel.Line2;
+                Glyph1 = sel.Glyph1;
+                Glyph2 = sel.Glyph2;
+            }
+            else if (sel.Line2 < sel.Line1)
+            {
+                Line1 = sel.Line2;
+                Line2 = sel.Line1;
+                Glyph1 = sel.Glyph2;
+                Glyph2 = sel.Glyph1;
+            }
+            else
+            {
+                Line1 = sel.Line1;
+                Line2 = sel.Line2;
+
+                if (-1 === sel.Glyph1)
+                {
+                    Glyph1 = sel.Glyph2;
+                    Glyph2 = sel.Glyph1;
+                }
+                else if (-1 === sel.Glyph2)
+                {
+                    Glyph1 = sel.Glyph1;
+                    Glyph2 = sel.Glyph2;
+                }
+                else if (sel.Glyph1 < sel.Glyph2)
+                {
+                    Glyph1 = sel.Glyph1;
+                    Glyph2 = sel.Glyph2;
+                }
+                else
+                {
+                    Glyph1 = sel.Glyph2;
+                    Glyph2 = sel.Glyph1;
+                }
+            }
+        }
+
+        for (let i = Page1; i <= Page2; i++) {
             var stream = this.getPageTextStream(i);
-            if (!stream)
+            if (!stream || this.pages[i].isRecognized)
                 continue;
 
             let oInfo = {
@@ -1119,79 +1225,6 @@ void main() {\n\
                 quads: []
             }
             
-            var sel = this.Selection;
-            var Page1 = 0;
-            var Page2 = 0;
-            var Line1 = 0;
-            var Line2 = 0;
-            var Glyph1 = 0;
-            var Glyph2 = 0;
-
-            if (sel.Page2 > sel.Page1)
-            {
-                Page1 = sel.Page1;
-                Page2 = sel.Page2;
-                Line1 = sel.Line1;
-                Line2 = sel.Line2;
-                Glyph1 = sel.Glyph1;
-                Glyph2 = sel.Glyph2;
-            }
-            else if (sel.Page2 < sel.Page1)
-            {
-                Page1 = sel.Page2;
-                Page2 = sel.Page1;
-                Line1 = sel.Line2;
-                Line2 = sel.Line1;
-                Glyph1 = sel.Glyph2;
-                Glyph2 = sel.Glyph1;
-            }
-            else if (sel.Page1 === sel.Page2)
-            {
-                Page1 = sel.Page1;
-                Page2 = sel.Page2;
-
-                if (sel.Line1 < sel.Line2)
-                {
-                    Line1 = sel.Line1;
-                    Line2 = sel.Line2;
-                    Glyph1 = sel.Glyph1;
-                    Glyph2 = sel.Glyph2;
-                }
-                else if (sel.Line2 < sel.Line1)
-                {
-                    Line1 = sel.Line2;
-                    Line2 = sel.Line1;
-                    Glyph1 = sel.Glyph2;
-                    Glyph2 = sel.Glyph1;
-                }
-                else
-                {
-                    Line1 = sel.Line1;
-                    Line2 = sel.Line2;
-
-                    if (-1 === sel.Glyph1)
-                    {
-                        Glyph1 = sel.Glyph2;
-                        Glyph2 = sel.Glyph1;
-                    }
-                    else if (-1 === sel.Glyph2)
-                    {
-                        Glyph1 = sel.Glyph1;
-                        Glyph2 = sel.Glyph2;
-                    }
-                    else if (sel.Glyph1 < sel.Glyph2)
-                    {
-                        Glyph1 = sel.Glyph1;
-                        Glyph2 = sel.Glyph2;
-                    }
-                    else
-                    {
-                        Glyph1 = sel.Glyph2;
-                        Glyph2 = sel.Glyph1;
-                    }
-                }
-            }
-
             if (Page1 > i || Page2 < i)
                 continue;
 
@@ -1413,10 +1446,15 @@ void main() {\n\
                 aInfo.push(oInfo);
         }
         
+        this.cacheSelectionQuads(aInfo);
         return aInfo;
     };
     CFile.prototype.drawSelection = function(pageIndex, overlay, x, y)
     {
+        if (this.pages[pageIndex].isRecognized) {
+            return;
+        }
+        
         var stream = this.getPageTextStream(pageIndex);
         if (!stream)
             return;
@@ -1732,7 +1770,7 @@ void main() {\n\
     {
         var stream = this.getPageTextStream(pageIndex);
         if (!stream)
-            return;
+            return "";
 
         var ret = "";
 
@@ -2009,6 +2047,9 @@ void main() {\n\
         var ret = "<div>";
         for (var i = page1; i <= page2; i++)
         {
+            if (this.pages[i].isRecognized)
+                continue;
+
             ret += this.copySelection(i, _text_format);
         }
         ret += "</div>";
@@ -2098,18 +2139,9 @@ void main() {\n\
 
     CFile.prototype.selectAll = function()
     {
+        this.removeSelection();
         var sel = this.Selection;
-
-        sel.Page1 = 0;
-        sel.Line1 = 0;
-        sel.Glyph1 = 0;
-
-        sel.Page2 = 0;
-        sel.Line2 = 0;
-        sel.Glyph2 = 0;
-
-        sel.IsSelection = false;
-
+        
         var pagesCount = this.pages.length;
         if (0 != pagesCount)
         {
@@ -2125,6 +2157,7 @@ void main() {\n\
 
         this.onUpdateSelection();
         this.onUpdateOverlay();
+        this.viewer.getPDFDoc().TextSelectTrackHandler.Update();
     };
 
     CFile.prototype.onUpdateOverlay = function()
@@ -2799,6 +2832,8 @@ void main() {\n\
         var error = file.nativeFile["loadFromData"](data);
         if (0 === error)
         {
+            file.type = file.nativeFile["getType"]();
+
             file.nativeFile["onRepaintPages"] = function(pages) {
                 file.onRepaintPages && file.onRepaintPages(pages);
             };
@@ -2823,6 +2858,7 @@ void main() {\n\
                 page.Dpi            = page["Dpi"];
                 page.originIndex    = page["originIndex"]; // исходный индекс в файле
                 page.originRotate   = page["Rotate"];
+                page.Rotate         = page["Rotate"];
             }
             file.originalPagesCount = file.pages.length;
 
@@ -2843,6 +2879,8 @@ void main() {\n\
         var error = file.nativeFile["loadFromDataWithPassword"](password);
         if (0 === error)
         {
+            file.type = file.nativeFile["getType"]();
+
             file.nativeFile["onRepaintPages"] = function(pages) {
                 file.onRepaintPages && file.onRepaintPages(pages);
             };
@@ -2854,12 +2892,15 @@ void main() {\n\
             for (var i = 0, len = file.pages.length; i < len; i++)
             {
                 var page = file.pages[i];
-                page.W = page["W"];
-                page.H = page["H"];
-                page.Dpi = page["Dpi"];
-                page.originIndex = i; // исходный индекс в файле
+                page.W              = page["W"];
+                page.H              = page["H"];
+                page.Dpi            = page["Dpi"];
+                page.originIndex    = page["originIndex"]; // исходный индекс в файле
+                page.originRotate   = page["Rotate"];
+                page.Rotate         = page["Rotate"];
             }
-
+            file.originalPagesCount = file.pages.length;
+            
             //file.cacheManager = new AscCommon.CCacheManager();
         }
     };
