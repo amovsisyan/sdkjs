@@ -8058,6 +8058,30 @@ function parserFormula( formula, parent, _ws ) {
 
 				t.is3D = true;
 
+				let externalLink = _3DRefTmp[3], receivedDefName = _3DRefTmp[5];
+				let externalDefName, externalSheetName;
+
+				if (receivedDefName) {
+					if (local) {
+						parseResult.setError(c_oAscError.ID.FrmlWrongReferences);
+						if (!ignoreErrors) {
+							t.outStack = [];
+							return false;
+						}
+					}
+					
+					let eReference = t.wb.getExternalLinkByIndex(externalLink - 1);
+					if (eReference && eReference.DefinedNames) {
+						for (let i = 0; i < eReference.DefinedNames.length; i++) {
+							if (eReference.DefinedNames[i].Name === receivedDefName & eReference.DefinedNames[i].SheetId !== null) {
+								externalDefName = eReference.DefinedNames[i];
+								break;
+							}
+						}
+					}
+					externalSheetName = externalDefName ? eReference.SheetNames[externalDefName.SheetId] : null;
+				}
+
 				//renameSheetMap
 				if (renameSheetMap) {
 					if (renameSheetMap[_3DRefTmp[1]]) {
@@ -8070,9 +8094,16 @@ function parserFormula( formula, parent, _ws ) {
 					}
 				}
 
-				var wsF, wsT;
-				let sheetName = _3DRefTmp[1];
-				let externalLink = _3DRefTmp[3];
+				let wsF, wsT;
+				let sheetName = _3DRefTmp[1] ? _3DRefTmp[1] : externalSheetName;
+				if (!sheetName) {
+					parseResult.setError(c_oAscError.ID.FrmlWrongReferences);
+					if (!ignoreErrors) {
+						t.outStack = [];
+						return false;
+					}
+				}
+
 				let isExternalRefExist;
 				//check on add to this document
 				let thisTitle = externalLink && window["Asc"]["editor"] && window["Asc"]["editor"].DocInfo && window["Asc"]["editor"].DocInfo.get_Title();

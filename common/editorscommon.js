@@ -2911,6 +2911,7 @@
 		rx_ref3D_quoted       = new XRegExp("^'(?<name_from>(?:''|[^\\[\\]'\\/*?:])*)(?::(?<name_to>(?:''|[^\\[\\]'\\/*?:])*))?'!"),
 		rx_ref3D_non_quoted_2 = new XRegExp("^(?<name_from>[" + str_namedRanges + "\\d][" + str_namedRanges + "\\d.]*)(:(?<name_to>[" + str_namedRanges + "\\d][" + str_namedRanges + "\\d.]*))?!", "i"),
 		rx_ref3D              = new XRegExp("^(?<name_from>[^:]+)(:(?<name_to>[^:]+))?!"),
+		rx_ref3D_short        = /^\!{1}(?<defname>[^\s\\]+)/i,	// short links that ms writes as [externalLink] + "!" + "Defname"
 		rx_ref_external       = /^(\[{1}(\d*)\]{1})/,
 		rx_ref_external2      = /^(\[{1}(\d*)\]{1})/,
 		rx_number             = /^ *[+-]?\d*(\d|\.)\d*([eE][+-]?\d+)?/,
@@ -3432,6 +3433,7 @@
 			//необходимо вычленить имя файла и путь к нему, затем проверить путь
 			//если путь указан, то ссылка должна быть в одинарных кавычках, если указан просто название файла в [] - в мс это означает, что данный файл открыт, при его закрытии путь проставляется
 			//пока не реализовываем с открытыми файлами, работаем только с путями
+			//также ссылки типа [] + ! + Defname должны обрабатываться аналогично как [] + SheetName + ! + Defname
 			external = parseExternalLink(subSTR);
 			if (external) {
 				externalLength = external.fullname.length;
@@ -3446,7 +3448,7 @@
 			}
 		}
 
-		var match  = XRegExp.exec(subSTR, rx_ref3D_quoted) || XRegExp.exec(subSTR, rx_ref3D_non_quoted);
+		let match = XRegExp.exec(subSTR, rx_ref3D_quoted) || XRegExp.exec(subSTR, rx_ref3D_non_quoted) || XRegExp.exec(subSTR, rx_ref3D_short);
 		if(!match && support_digital_start) {
 			match = XRegExp.exec(subSTR, rx_ref3D_non_quoted_2);
 		}
@@ -3455,6 +3457,11 @@
 		{
 			this.pCurrPos += match[0].length + externalLength;
 			this.operand_str = match[1];
+
+			if (!match["name_from"] && !match["name_to"] && (match.groups && match.groups["defname"])) {
+				return [true, null, null, external, externalLength, match.groups["defname"].replace(/''/g, "'")];
+			}
+
 			return [true, match["name_from"] ? match["name_from"].replace(/''/g, "'") : null, match["name_to"] ? match["name_to"].replace(/''/g, "'") : null, external];
 		}
 		return [false, null, null, external, externalLength];
