@@ -1277,7 +1277,7 @@
 		}
 	};
 
-	WorkbookView.prototype._onScrollY = function (pos, initRowsCount, needInit) {
+	WorkbookView.prototype._onScrollY = function (pos, initRowsCount, needInit, bDefaultStep) {
 		let ws = this.getWorksheet();
 		let t = this;
 		//console.log(" pos: " + pos)
