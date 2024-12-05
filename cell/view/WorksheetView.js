@@ -10271,7 +10271,7 @@
     };
 
 	window.isReverse;
-    WorksheetView.prototype.scrollVertical = function (delta, editor, initRowsCount) {
+    WorksheetView.prototype.scrollVertical = function (delta, editor, initRowsCount, test) {
 		let t = this;
         var vr = this.visibleRange;
         var fixStartRow = new asc_Range(vr.c1, vr.r1, vr.c2, vr.r1);
@@ -10628,6 +10628,10 @@
 			}
 			return false;
 		};
+
+		if (initRowsCount && !isReverse && test) {
+			this.nRowsCount += 10;
+		}
 
 		if ((reinitScrollY && !this.workbook.getSmoothScrolling()) || (reinitScrollY && this.workbook.getSmoothScrolling() && deltaCorrect !== currentScrollCorrect) ||
 			(isReverse && initRowsCount && this._initRowsCount()) || (this.workbook.getSmoothScrolling() && initRowsCount && this.nRowsCount !== gc_nMaxRow) || isNeedExpand()) {

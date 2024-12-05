@@ -1285,7 +1285,7 @@
 		let doScroll = function () {
 			var delta = !t.getSmoothScrolling() ? (asc_round(pos - ws.getFirstVisibleRow(true))) : (pos - (ws.getFirstVisibleRowSmoothScroll(true)));
 			if (delta !== 0) {
-				ws.scrollVertical(delta, t.cellEditor, initRowsCount);
+				ws.scrollVertical(delta, t.cellEditor, initRowsCount, bDefaultStep);
 			}
 		}
 		if (bDefaultStep) {
