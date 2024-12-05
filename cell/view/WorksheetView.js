@@ -1560,6 +1560,20 @@
             this.updateResize = false;
 
             this.objectRender.resizeCanvas();
+			if (this.getRightToLeft()) {
+				AscFormat.ExecuteNoHistory(function () {
+					let drawings = this.objectRender.controller.getDrawingObjects();
+					for (var i = 0; i < drawings.length; ++i) {
+						if (!drawings[i].group) {
+							AscFormat.CheckSpPrXfrm3(drawings[i], true);
+						} else {
+							AscFormat.CheckSpPrXfrm(drawings[i], true);
+						}
+					}
+					this.objectRender.controller.recalculate(true);
+				}, this, []);
+			}
+
 			if (editor) {
 				editor.move();
 			}
@@ -15852,7 +15866,12 @@
                         switch (val) {
                             case c_oAscMergeOptions.MergeCenter:
                             case c_oAscMergeOptions.Merge:
-                                range.merge(val);
+                                let mergeRes = range.merge(val);
+								/* call an error if it returns from merge */
+								if (mergeRes && mergeRes.errorType) {
+									t.handlers.trigger("onErrorEvent", mergeRes.errorType, c_oAscError.Level.NoCritical);
+									break;
+								}
                                 t.cellCommentator.mergeComments(range.getBBox0());
                                 break;
                             case c_oAscMergeOptions.None:
@@ -15860,7 +15879,12 @@
                                 break;
                             case c_oAscMergeOptions.MergeAcross:
                                 for (res = range.bbox.r1; res <= range.bbox.r2; ++res) {
-                                    t.model.getRange3(res, range.bbox.c1, res, range.bbox.c2).merge(val);
+									let mergeRes = t.model.getRange3(res, range.bbox.c1, res, range.bbox.c2).merge(val);
+                                    /* call an error if it returns from merge */
+									if (mergeRes && mergeRes.errorType) {
+										t.handlers.trigger("onErrorEvent", mergeRes.errorType, c_oAscError.Level.NoCritical);
+										break;
+									}
                                     cell = new asc_Range(range.bbox.c1, res, range.bbox.c2, res);
                                     t.cellCommentator.mergeComments(cell);
                                 }
@@ -18286,6 +18310,20 @@
 			}
 		};
 
+		let startTransaction = function () {
+			if (!isNotHistory) {
+				History.Create_NewPoint();
+				History.StartTransaction();
+			}
+		};
+		let endTransaction = function () {
+			if (!isNotHistory) {
+				History.EndTransaction();
+			}
+		};
+
+		startTransaction();
+
 		let dynamicSelectionRange = null;
 		let isFormula = this._isFormula(val);
 		let newFP, parseResult;
@@ -18301,12 +18339,6 @@
 					return;
 				}
 			} else {
-
-				if (!isNotHistory) {
-					History.Create_NewPoint();
-					History.StartTransaction();
-				}
-
 				// we check for new links to external data
 				if (parseResult.externalReferenesNeedAdd) {
 					t.model.workbook.addExternalReferencesAfterParseFormulas(parseResult.externalReferenesNeedAdd);
@@ -18314,6 +18346,7 @@
 					newFP = new AscCommonExcel.parserFormula(val[0].getFragmentText().substring(1), cellWithFormula, this.model);
 					if (!newFP.parse(AscCommonExcel.oFormulaLocaleInfo.Parse, AscCommonExcel.oFormulaLocaleInfo.DigitSep, parseResult)) {
 						this.model.workbook.handlers.trigger("asc_onError", parseResult.error, c_oAscError.Level.NoCritical);
+						endTransaction();
 						return;
 					}
 				}
@@ -18354,6 +18387,7 @@
 						if (refInfo.cannotChangeFormulaArray) {
 							t.handlers.trigger("onErrorEvent", c_oAscError.ID.CannotChangeFormulaArray,
 								c_oAscError.Level.NoCritical);
+							endTransaction();
 							return false;
 						}
 	
@@ -18367,20 +18401,18 @@
 				// if calculateResult.error is not empty - return this error
 				if (calculateResult && calculateResult.error != null) {
 					this.model.workbook.handlers.trigger("asc_onError", calculateResult.error, c_oAscError.Level.NoCritical);
+					endTransaction();
 					return false;
 				}
 			}
 		}
 
-		if (!isNotHistory) {
-			History.Create_NewPoint();
-			History.StartTransaction();
-		}
 		const pivotTable = c.worksheet.getPivotTable(c.bbox.c1, c.bbox.r1);
 		// if there is a formula use setValue, otherwise setValue2
 		if (isFormula) {
 			if (pivotTable) {
 				this.workbook.Api.sendEvent('asc_onError', Asc.c_oAscError.ID.FormulaInPivotFieldName, Asc.c_oAscError.Level.NoCritical);
+				endTransaction();
 				return;
 			}
 			// ToDo - при вводе формулы в заголовок автофильтра надо писать "0"
@@ -18435,7 +18467,7 @@
 			}
 
 			if (!ret) {
-				History.EndTransaction();
+				endTransaction();
 				//t.model.workbook.dependencyFormulas.unlockRecal();
 				return false;
 			}
@@ -18502,9 +18534,7 @@
 				}
 			}
 
-		if (!isNotHistory) {
-			History.EndTransaction();
-		}
+		endTransaction();
 
 		if(isFormula && !applyByArray) {
 			c._foreach(function(cell){
@@ -26582,7 +26612,7 @@
 	};
 	/**
 	 * Method applies series settings when user confirms "Series" settings in dialog window or context menu.
-	 * @param {c_oAscFillType} type
+	 * @param {Asc.c_oAscFillType} type
 	 * @param {asc_CSeriesSettings} [settings]
 	 */
 	WorksheetView.prototype.applySeriesSettings = function (type, settings) {
@@ -26687,6 +26717,9 @@
 				break;
 			case c_oAscFillType.fillSeries:
 			case c_oAscFillType.fillDays:
+			case c_oAscFillType.fillWeekdays:
+			case c_oAscFillType.fillMonths:
+			case c_oAscFillType.fillYears:
 				if (!this.activeFillHandle) {
 					return;
 				}
@@ -26695,16 +26728,14 @@
 					this.applyFillHandle(null, null, true, null);
 				} else {
 					this.model.setFillHandleRightClick(true);
+					this.model.setFillMenuChosenProp(type);
 					this.applyFillHandle(null, null, false, null);
 					this.model.setFillHandleRightClick(false);
+					this.model.setFillMenuChosenProp(null);
 				}
 				break;
 			case c_oAscFillType.linearTrend:
 			case c_oAscFillType.growthTrend:
-			//case c_oAscFillType.fillDays:
-			//case c_oAscFillType.fillWeekdays:
-			//case c_oAscFillType.fillMonths:
-			//case c_oAscFillType.fillYears:
 				if (!cSerial) {
 					return;
 				}

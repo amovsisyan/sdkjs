@@ -1100,6 +1100,9 @@
 	asc_docs_api.prototype.isMasterMode = function() {
 		return this.presentationViewMode === Asc.c_oAscPresentationViewMode.masterSlide && !this.isSlideShow();
 	};
+	asc_docs_api.prototype.isNormalMode = function() {
+		return this.presentationViewMode === Asc.c_oAscPresentationViewMode.normal && !this.isSlideShow();
+	};
 	asc_docs_api.prototype.asc_IsMasterMode = function() {
 		return this.isMasterMode();
 	};
@@ -1206,6 +1209,7 @@
 		AscCommon.CollaborativeEditing.Clear();
 		this.isApplyChangesOnOpenEnabled = true;
 		this.isDocumentLoadComplete = false;
+		this.ServerImagesWaitComplete = false;
 		this.turnOffSpecialModes();
 
 		var oLogicDocument = this.WordControl.m_oLogicDocument;
@@ -1899,7 +1903,7 @@ background-repeat: no-repeat;\
 			let oContentCustomPr = oCustomPrPart.getDocumentContent();
 			if(oContentCustomPr) {
 				let oCustomPrReader = new StaxParser(oContentCustomPr, oCustomPrPart, xmlParserContext);
-				this.WordControl.m_oLogicDocument.CustomPr.fromXml(oCustomPrReader, true);
+				this.WordControl.m_oLogicDocument.CustomProperties.fromXml(oCustomPrReader, true);
 			}
 		}
 		var context = reader.context;
@@ -6623,6 +6627,12 @@ background-repeat: no-repeat;\
 		}
 		this.WordControl.m_oLogicDocument.Document_UpdateInterfaceState();
 		this.WordControl.Thumbnails.OnUpdateOverlay();
+	};
+	asc_docs_api.prototype.getThumbnailsManager = function()
+	{
+		if(!this.WordControl || !this.WordControl.Thumbnails)
+			return null;
+		return this.WordControl.Thumbnails;
 	};
 
 	asc_docs_api.prototype.asc_moveSelectedSlidesToEnd = function()
