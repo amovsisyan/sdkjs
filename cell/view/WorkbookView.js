@@ -1277,10 +1277,10 @@
 		}
 	};
 
-	WorkbookView.prototype._onScrollY = function (pos, initRowsCount, bDefaultStep) {
+	WorkbookView.prototype._onScrollY = function (pos, initRowsCount, needInit) {
 		let ws = this.getWorksheet();
 		let t = this;
-		console.log(" pos: " + pos)
+		//console.log(" pos: " + pos)
 		pos = pos*AscCommon.AscBrowser.retinaPixelRatio
 		let doScroll = function () {
 			var delta = !t.getSmoothScrolling() ? (asc_round(pos - ws.getFirstVisibleRow(true))) : (pos - (ws.getFirstVisibleRowSmoothScroll(true)));
@@ -1288,7 +1288,7 @@
 				ws.scrollVertical(delta, t.cellEditor, initRowsCount, bDefaultStep);
 			}
 		}
-		if (bDefaultStep) {
+		if (false) {
 			ws.executeScrollDefaultStep(function () {
 				doScroll();
 			})
