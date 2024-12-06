@@ -1039,7 +1039,7 @@ $(function () {
 		assert.ok(!oParser.parse(false/*isLocal*/, null, parseResult), "Short link. isLocal = false." + shortLink);
 
 		oParser = new parserFormula(shortLinkDefname, cellWithFormula, ws);
-		assert.ok(!oParser.parse(false/*isLocal*/, null, parseResult), "Full link to defname. isLocal = false." + shortLinkDefname);
+		assert.ok(oParser.parse(false/*isLocal*/, null, parseResult), "Short link to defname. isLocal = false." + shortLinkDefname);
 
 		// try parse string to external ref similiar as writing a string manually
 		oParser = new parserFormula(fullLinkLocal, cellWithFormula, ws);
@@ -1049,10 +1049,10 @@ $(function () {
 		assert.ok(oParser.parse(true/*isLocal*/, null, parseResult), "Full link to defname. isLocal = true." + fullLinkDefnameLocal);
 
 		oParser = new parserFormula(shortLinkLocal, cellWithFormula, ws);
-		assert.ok(!oParser.parse(true/*isLocal*/, null, parseResult), "Short link. isLocal = true." + shortLinkLocal);
+		assert.ok(oParser.parse(true/*isLocal*/, null, parseResult) === false, "Short link. isLocal = true." + shortLinkLocal);
 
 		oParser = new parserFormula(shortLinkDefnameLocal, cellWithFormula, ws);
-		assert.ok(!oParser.parse(true/*isLocal*/, null, parseResult), "Short link to defname. isLocal = true." + shortLinkDefnameLocal);
+		assert.ok(oParser.parse(true/*isLocal*/, null, parseResult) === false, "Short link to defname. isLocal = true." + shortLinkDefnameLocal);
 
 
 		//remove external reference

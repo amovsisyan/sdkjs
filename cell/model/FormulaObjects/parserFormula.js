@@ -8075,7 +8075,7 @@ function parserFormula( formula, parent, _ws ) {
 						for (let i = 0; i < eReference.DefinedNames.length; i++) {
 							if (eReference.DefinedNames[i].Name === receivedDefName) {
 								externalDefName = eReference.DefinedNames[i];
-								if (externalDefName.SheetId) {
+								if (externalDefName.SheetId !== null) {
 									externalSheetName = eReference.SheetNames[eReference.DefinedNames[i].SheetId];
 								} else if (!externalDefName.SheetId && externalDefName.RefersTo) {
 									// parse string
