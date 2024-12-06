@@ -992,6 +992,74 @@ $(function () {
 		assert.strictEqual(wb.externalReferences.length, 0);
 	});
 
+	QUnit.test("Test: \"Check short links\"", function (assert) {
+		// create ext link
+		// check parser formula - simulate reading a string like [linkIndex] + "SheetName" + "!" + "ReferenceTo"
+		let fullLinkLocal = "'[book.xlsx]Sheet1'!A1",
+			fullLinkDefnameLocal = "'[book.xlsx]Sheet1'!_s1",
+			fullLink = "'[1]Sheet1'!A1",
+			fullLinkDefname = "'[1]Sheet1'!_s1",
+			shortLinkLocal = "'[book.xlsx]'!A1",
+			shortLinkDefnameLocal = "[book.xlsx]!_s1",
+			shortLink = "[1]!A1",
+			shortLinkDefname = "[1]!_s1",
+			externalWs;
+		
+		
+		// create external link
+		let cellWithFormula = new AscCommonExcel.CCellWithFormula(ws, 1, 0);
+		let parseResult = new AscCommonExcel.ParseResult([]);
+		oParser = new parserFormula(fullLinkDefnameLocal, cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult), fullLinkDefnameLocal);
+
+		// set extrefs to 0
+		wb.externalReferences.length = 0;
+
+		assert.strictEqual(wb.externalReferences.length, 0, 'External reference length before add');
+		wb.addExternalReferencesAfterParseFormulas(parseResult.externalReferenesNeedAdd);
+		assert.strictEqual(wb.externalReferences.length, 1, 'External reference length after add');
+		initDefinedName(wb.externalReferences[0], "Sheet1", "A1:A2", "_s1");
+
+		externalWs = createExternalWorksheet("Sheet1");
+		externalWs.getRange2("A1").setValue("10");
+		externalWs.getRange2("A2").setValue("20");
+
+		wb.externalReferences[0].updateData([externalWs]);
+		// defNames.wb[this.Name].getRef();
+		// wb.externalReferences[0].addDefName()
+
+		// try to parse string to external ref similiar as read the file
+		oParser = new parserFormula(fullLink, cellWithFormula, ws);
+		assert.ok(oParser.parse(false/*isLocal*/, null, parseResult), "Full link. isLocal = false." + fullLink);
+
+		oParser = new parserFormula(fullLinkDefname, cellWithFormula, ws);
+		assert.ok(oParser.parse(false/*isLocal*/, null, parseResult), "Full link to defname. isLocal = false." + fullLinkDefname);
+
+		oParser = new parserFormula(shortLink, cellWithFormula, ws);
+		assert.ok(!oParser.parse(false/*isLocal*/, null, parseResult), "Short link. isLocal = false." + shortLink);
+
+		oParser = new parserFormula(shortLinkDefname, cellWithFormula, ws);
+		assert.ok(!oParser.parse(false/*isLocal*/, null, parseResult), "Full link to defname. isLocal = false." + shortLinkDefname);
+
+		// try parse string to external ref similiar as writing a string manually
+		oParser = new parserFormula(fullLinkLocal, cellWithFormula, ws);
+		assert.ok(oParser.parse(true/*isLocal*/, null, parseResult), "Full link. isLocal = true." + fullLinkLocal);
+
+		oParser = new parserFormula(fullLinkDefnameLocal, cellWithFormula, ws);
+		assert.ok(oParser.parse(true/*isLocal*/, null, parseResult), "Full link to defname. isLocal = true." + fullLinkDefnameLocal);
+
+		oParser = new parserFormula(shortLinkLocal, cellWithFormula, ws);
+		assert.ok(!oParser.parse(true/*isLocal*/, null, parseResult), "Short link. isLocal = true." + shortLinkLocal);
+
+		oParser = new parserFormula(shortLinkDefnameLocal, cellWithFormula, ws);
+		assert.ok(!oParser.parse(true/*isLocal*/, null, parseResult), "Short link to defname. isLocal = true." + shortLinkDefnameLocal);
+
+
+		//remove external reference
+		wb.removeExternalReferences([wb.externalReferences[0].getAscLink()]);
+		assert.strictEqual(wb.externalReferences.length, 0);
+	});
+
 	// Mocks for API Testing
 	Asc.spreadsheet_api.prototype._init = function () {
 		this._loadModules();

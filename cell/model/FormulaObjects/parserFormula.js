@@ -8073,13 +8073,25 @@ function parserFormula( formula, parent, _ws ) {
 					let eReference = t.wb.getExternalLinkByIndex(externalLink - 1);
 					if (eReference && eReference.DefinedNames) {
 						for (let i = 0; i < eReference.DefinedNames.length; i++) {
-							if (eReference.DefinedNames[i].Name === receivedDefName & eReference.DefinedNames[i].SheetId !== null) {
+							if (eReference.DefinedNames[i].Name === receivedDefName) {
 								externalDefName = eReference.DefinedNames[i];
+								if (externalDefName.SheetId) {
+									externalSheetName = eReference.SheetNames[eReference.DefinedNames[i].SheetId];
+								} else if (!externalDefName.SheetId && externalDefName.RefersTo) {
+									// parse string
+									let refString = externalDefName.RefersTo,
+										// regex to find a sheet name enclosed in single quotes
+										reg = /'(?<sheetname>[\S]+)'/gi,
+										regMatch = reg.exec(refString);
+
+									if (regMatch && regMatch[1]) {
+										externalSheetName = regMatch[1];
+									}
+								}
 								break;
 							}
 						}
 					}
-					externalSheetName = externalDefName ? eReference.SheetNames[externalDefName.SheetId] : null;
 				}
 
 				//renameSheetMap
