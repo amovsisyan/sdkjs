@@ -7858,9 +7858,12 @@ drawParetoChart.prototype.drawParetoLine = function () {
 	if (!this.linePath) {
 		return;
 	}
-	const pen = this.cChartSpace && this.cChartSpace.chart && this.cChartSpace.chart.plotArea && this.cChartSpace.chart.plotArea.axId && this.cChartSpace.chart.plotArea.axId[1] ? this.cChartSpace.chart.plotArea.axId[1].compiledMajorGridLines : null;
-	if (pen) {
-		this.cChartDrawer.drawPath(this.linePath, pen);
+	const seria = this.cChartSpace && this.cChartSpace.chart && this.cChartSpace.chart.plotArea &&
+		this.cChartSpace.chart.plotArea.plotAreaRegion && Array.isArray(this.cChartSpace.chart.plotArea.plotAreaRegion.series) && 1 < this.cChartSpace.chart.plotArea.plotAreaRegion.series.length
+		&& this.cChartSpace.chart.plotArea.plotAreaRegion.series[1];
+	if (seria) {
+		const pen = seria.compiledSeriesPen;
+		this.cChartDrawer.drawPath(this.linePath, pen, brush);
 	}
 };
 
