@@ -10356,12 +10356,12 @@ CDocumentBorder.prototype =
     {
         // Double   : Size
         // Long     : Space
-        // Byte     : Value
+        // Long     : Value
         // Variable : Color
 
         Writer.WriteDouble( this.Size );
         Writer.WriteLong( this.Space );
-        Writer.WriteByte( this.Value );
+        Writer.WriteLong( this.Value );
         this.Color.Write_ToBinary( Writer );
         if(this.Unifill)
         {
@@ -10393,7 +10393,7 @@ CDocumentBorder.prototype =
 
         this.Size  = Reader.GetDouble();
         this.Space = Reader.GetLong();
-        this.Value = Reader.GetByte();
+        this.Value = Reader.GetLong();
         this.Color.Read_FromBinary( Reader );
         if(Reader.GetBool())
         {
@@ -11235,7 +11235,7 @@ CTablePr.prototype.Read_FromBinary = function(Reader)
 	if (1048576 & Flags)
 	{
 		this.PrChange   = new CTablePr();
-		this.ReviewInfo = new CReviewInfo();
+		this.ReviewInfo = new AscWord.ReviewInfo();
 
 		this.PrChange.ReadFromBinary(Reader);
 		this.ReviewInfo.ReadFromBinary(Reader);
@@ -11259,7 +11259,7 @@ CTablePr.prototype.HavePrChange = function()
 CTablePr.prototype.AddPrChange = function()
 {
 	this.PrChange   = this.Copy(false);
-	this.ReviewInfo = new CReviewInfo();
+	this.ReviewInfo = new AscWord.ReviewInfo();
 	this.ReviewInfo.Update();
 };
 CTablePr.prototype.SetPrChange = function(oPrChange, oReviewInfo)
@@ -11579,7 +11579,7 @@ CTableRowPr.prototype.Read_FromBinary = function(Reader)
 	if (512 & Flags)
 	{
 		this.PrChange   = new CTableRowPr();
-		this.ReviewInfo = new CReviewInfo();
+		this.ReviewInfo = new AscWord.ReviewInfo();
 
 		this.PrChange.ReadFromBinary(Reader);
 		this.ReviewInfo.ReadFromBinary(Reader);
@@ -11603,7 +11603,7 @@ CTableRowPr.prototype.HavePrChange = function()
 CTableRowPr.prototype.AddPrChange = function()
 {
 	this.PrChange   = this.Copy(false);
-	this.ReviewInfo = new CReviewInfo();
+	this.ReviewInfo = new AscWord.ReviewInfo();
 	this.ReviewInfo.Update();
 };
 CTableRowPr.prototype.SetPrChange = function(oPrChange, oReviewInfo)
@@ -12128,7 +12128,7 @@ CTableCellPr.prototype.Read_FromBinary = function(Reader)
 	if (262144 & Flags)
 	{
 		this.PrChange   = new CTableCellPr();
-		this.ReviewInfo = new CReviewInfo();
+		this.ReviewInfo = new AscWord.ReviewInfo();
 
 		this.PrChange.ReadFromBinary(Reader);
 		this.ReviewInfo.ReadFromBinary(Reader);
@@ -12171,7 +12171,7 @@ CTableCellPr.prototype.HavePrChange = function()
 CTableCellPr.prototype.AddPrChange = function()
 {
 	this.PrChange   = this.Copy(false);
-	this.ReviewInfo = new CReviewInfo();
+	this.ReviewInfo = new AscWord.ReviewInfo();
 	this.ReviewInfo.Update();
 };
 CTableCellPr.prototype.SetPrChange = function(oPrChange, oReviewInfo)
@@ -12266,7 +12266,7 @@ CRFonts.prototype.Merge = function(oRFonts)
 		this.AsciiTheme = oRFonts.AsciiTheme;
 		this.Ascii      = undefined;
 	}
-	else if (oRFonts.Ascii)
+	else if (oRFonts.Ascii && oRFonts.Ascii.Name)
 	{
 		this.Ascii      = oRFonts.Ascii;
 		this.AsciiTheme = undefined;
@@ -12277,7 +12277,7 @@ CRFonts.prototype.Merge = function(oRFonts)
 		this.EastAsiaTheme = oRFonts.EastAsiaTheme;
 		this.EastAsia      = undefined;
 	}
-	else if (oRFonts.EastAsia)
+	else if (oRFonts.EastAsia && oRFonts.EastAsia.Name)
 	{
 		this.EastAsia      = oRFonts.EastAsia;
 		this.EastAsiaTheme = undefined;
@@ -12288,7 +12288,7 @@ CRFonts.prototype.Merge = function(oRFonts)
 		this.HAnsiTheme = oRFonts.HAnsiTheme;
 		this.HAnsi      = undefined;
 	}
-	else if (oRFonts.HAnsi)
+	else if (oRFonts.HAnsi && oRFonts.HAnsi.Name)
 	{
 		this.HAnsi      = oRFonts.HAnsi;
 		this.HAnsiTheme = undefined;
@@ -12299,7 +12299,7 @@ CRFonts.prototype.Merge = function(oRFonts)
 		this.CSTheme = oRFonts.CSTheme;
 		this.CS      = undefined;
 	}
-	else if (oRFonts.CS)
+	else if (oRFonts.CS && oRFonts.CS.Name)
 	{
 		this.CS      = oRFonts.CS;
 		this.CSTheme = undefined;
@@ -12990,7 +12990,7 @@ CTextPr.prototype.Merge = function(TextPr)
 	if (undefined != TextPr.Underline)
 		this.Underline = TextPr.Underline;
 
-	if (undefined != TextPr.FontFamily)
+	if (undefined != TextPr.FontFamily && undefined !== TextPr.FontFamily.Name)
 	{
 		this.FontFamily       = {};
 		this.FontFamily.Name  = TextPr.FontFamily.Name;
@@ -14023,7 +14023,7 @@ CTextPr.prototype.Read_FromBinary = function(Reader)
 	if (Flags & 536870912)
 	{
 		this.PrChange   = new CTextPr();
-		this.ReviewInfo = new CReviewInfo();
+		this.ReviewInfo = new AscWord.ReviewInfo();
 		this.PrChange.ReadFromBinary(Reader);
 		this.ReviewInfo.ReadFromBinary(Reader);
 	}
@@ -14724,7 +14724,7 @@ CTextPr.prototype.HavePrChange = function()
 CTextPr.prototype.AddPrChange = function()
 {
 	this.PrChange   = this.Copy();
-	this.ReviewInfo = new CReviewInfo();
+	this.ReviewInfo = new AscWord.ReviewInfo();
 	this.ReviewInfo.Update();
 };
 CTextPr.prototype.SetPrChange = function(PrChange, ReviewInfo)
@@ -17035,7 +17035,7 @@ CParaPr.prototype.Read_FromBinary = function(Reader)
 	if (Flags & 8388608)
 	{
 		this.PrChange   = new CParaPr();
-		this.ReviewInfo = new CReviewInfo();
+		this.ReviewInfo = new AscWord.ReviewInfo();
 		this.PrChange.ReadFromBinary(Reader);
 		this.ReviewInfo.ReadFromBinary(Reader);
 	}
@@ -17385,7 +17385,7 @@ CParaPr.prototype.GetPrChangeNumPr = function()
 CParaPr.prototype.AddPrChange = function()
 {
 	this.PrChange   = this.Copy();
-	this.ReviewInfo = new CReviewInfo();
+	this.ReviewInfo = new AscWord.ReviewInfo();
 	this.ReviewInfo.Update();
 };
 CParaPr.prototype.SetPrChange = function(PrChange, ReviewInfo)

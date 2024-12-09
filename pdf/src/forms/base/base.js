@@ -168,7 +168,7 @@
             x: 0,
             y: 0
         }
-        this._originShiftView = { // смещение, когда значение формы применено (т.е. форма не активна)
+        this._oldShiftView = { // смещение, когда значение формы применено (т.е. форма не активна)
             x: 0,
             y: 0
         }
@@ -196,6 +196,7 @@
 		this.compositeInput = null;
 		this.compositeReplaceCount = 0;
 
+        this.Lock = new AscCommon.CLock();
         this.SetRect(aRect);
     }
 
@@ -1217,7 +1218,12 @@
     CBaseField.prototype.DrawSelected = function() {
         return;
     };
-    
+    CBaseField.prototype.SetParentPage = function(oParent) {
+        this.parentPage = oParent;
+    };
+    CBaseField.prototype.GetParentPage = function() {
+        return this.parentPage;
+    };
     CBaseField.prototype.Get_Id = function() {
         return this._id;
     };
@@ -1511,13 +1517,13 @@
 	 * @typedef {"MouseUp" | "MouseDown" | "MouseEnter" | "MouseExit" | "OnFocus" | "OnBlur" | "Keystroke" | "Validate" | "Calculate" | "Format"} cTrigger
 	 * For a list box, use the Keystroke trigger for the Selection Change event.
      */
-    CBaseField.prototype.RevertContentViewToOriginal = function() {
+    CBaseField.prototype.RevertContentView = function() {
         this.content.ResetShiftView();
-        this._curShiftView.x = this._originShiftView.x;
-        this._curShiftView.y = this._originShiftView.y;
+        this._curShiftView.x = this._oldShiftView.x;
+        this._curShiftView.y = this._oldShiftView.y;
 
         this._bAutoShiftContentView = false;
-        this.content.ShiftView(this._originShiftView.x, this._originShiftView.y);
+        this.content.ShiftView(this._oldShiftView.x, this._oldShiftView.y);
 
         if (this._scrollInfo) {
             let nMaxShiftY                  = this._scrollInfo.scroll.maxScrollY;
@@ -1530,8 +1536,8 @@
         return this._isWidget;
     };
     CBaseField.prototype.IsNeedRevertShiftView = function() {
-        if (this._curShiftView.y != this._originShiftView.y ||
-            this._curShiftView.x != this._originShiftView.x)
+        if (this._curShiftView.y != this._oldShiftView.y ||
+            this._curShiftView.x != this._oldShiftView.x)
             return true;
     };
     CBaseField.prototype.GetBordersWidth = function() {
@@ -1806,12 +1812,27 @@
 
         let aOringRect = this.GetOrigRect();
 
-        let X = (aOringRect[0] >> 0);
-        let Y = (aOringRect[1] >> 0);
+        let X = aOringRect[0];
+        let Y = aOringRect[1];
 
         if (originView) {
-            oGraphicsPDF.DrawImageXY(originView, X, Y);
+            oGraphicsPDF.DrawImageXY(originView, X, Y, undefined, true);
         }
+
+        // oGraphicsPDF.SetLineWidth(1);
+        // let nWidth  = aOringRect[2] - aOringRect[0];
+        // let nHeight = aOringRect[3] - aOringRect[1];
+
+        // Y += 1 / 2;
+        // X += 1 / 2;
+        // nWidth  -= 1;
+        // nHeight -= 1;
+
+        // oGraphicsPDF.SetStrokeStyle(0, 255, 255);
+        // oGraphicsPDF.SetLineDash([]);
+        // oGraphicsPDF.BeginPath();
+        // oGraphicsPDF.Rect(X, Y, nWidth, nHeight);
+        // oGraphicsPDF.Stroke();
     };
 	CBaseField.prototype.DrawFromTextBox = function(pdfGraphics, textBoxGraphics, pageIndex) {
 		this.Draw(pdfGraphics, textBoxGraphics);
@@ -2300,6 +2321,25 @@
         let nEndPos = memory.GetCurPosition();
         memory.Seek(nStartPos);
         memory.WriteLong(nFlags);
+        memory.Seek(nEndPos);
+    };
+    CBaseField.prototype.WriteRenderToBinary = function(memory) {
+        // пока только для text, combobox
+        if (false == [AscPDF.FIELD_TYPES.text, AscPDF.FIELD_TYPES.combobox, AscPDF.FIELD_TYPES.listbox].includes(this.GetType())) {
+            return;
+        }
+
+        // тут будет длина комманд
+        let nStartPos = memory.GetCurPosition();
+        memory.Skip(4);
+
+        let oContentToDraw = this.GetTrigger(AscPDF.FORMS_TRIGGERS_TYPES.Format) ? this.contentFormat : this.content;
+        oContentToDraw.Draw(0, memory.docRenderer);
+
+        // запись длины комманд
+        let nEndPos = memory.GetCurPosition();
+        memory.Seek(nStartPos);
+        memory.WriteLong(nEndPos - nStartPos);
         memory.Seek(nEndPos);
     };
 

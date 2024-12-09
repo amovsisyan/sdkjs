@@ -543,7 +543,7 @@ CDocumentContentBase.prototype.private_Remove = function(Count, isRemoveWholeEle
 					if (oElement && oElement.IsParagraph() && (nIndex < EndPos || this.Content[nIndex].IsSelectionToEnd()))
 					{
 						var oPrChange   = oElement.GetDirectParaPr();
-						var oReviewInfo = new CReviewInfo();
+						var oReviewInfo = new AscWord.ReviewInfo();
 						oReviewInfo.Update();
 
 						oElement.SetDirectParaPr(oDirectParaPr);
@@ -815,13 +815,15 @@ CDocumentContentBase.prototype.private_Remove = function(Count, isRemoveWholeEle
 				let isParagraphMarkRemove = this.Content[StartPos].IsParagraph() && this.Content[StartPos].IsSelectedOnlyParagraphMark();
 
 				this.CurPos.ContentPos = StartPos;
-				if (Count < 0 && this.Content[StartPos].IsTable() && true === this.Content[StartPos].IsCellSelection() && true !== bOnTextAdd)
+				if (this.Content[StartPos].IsTable()
+					&& true === this.Content[StartPos].IsCellSelection()
+					&& ((!bOnTextAdd && Count < 0) || isRemoveOnDrag))
 				{
 					this.RemoveTableCells();
 				}
 				else if (false === this.Content[StartPos].Remove(Count, isRemoveWholeElement, bRemoveOnlySelection, bOnTextAdd))
 				{
-					if (!bOnTextAdd && (isParagraphMarkRemove || ((isRemoveOnDrag || Count > 0 || StartPos < this.Content.length - 1) && this.Content[StartPos].IsEmpty())))
+					if ((!bOnTextAdd || isRemoveOnDrag) && (isParagraphMarkRemove || ((isRemoveOnDrag || Count > 0 || StartPos < this.Content.length - 1) && this.Content[StartPos].IsEmpty())))
 					{
 						// В ворде параграфы объединяются только когда у них все настройки совпадают.
 						// (почему то при изменении и обратном изменении настроек параграфы перестают объединятся)
@@ -923,7 +925,7 @@ CDocumentContentBase.prototype.private_Remove = function(Count, isRemoveWholeEle
 								{
 									var oParaPr   = this.Content[nCurContentPos].GetDirectParaPr();
 									var oPrChange = this.Content[nCurContentPos + 1].GetDirectParaPr();
-									var oReviewInfo = new CReviewInfo();
+									var oReviewInfo = new AscWord.ReviewInfo();
 									oReviewInfo.Update();
 
 									this.Content[nCurContentPos + 1].SetDirectParaPr(oParaPr);
@@ -1018,7 +1020,7 @@ CDocumentContentBase.prototype.private_Remove = function(Count, isRemoveWholeEle
 								{
 									var oParaPr   = this.Content[nCurContentPos - 1].GetDirectParaPr();
 									var oPrChange = this.Content[nCurContentPos].GetDirectParaPr();
-									var oReviewInfo = new CReviewInfo();
+									var oReviewInfo = new AscWord.ReviewInfo();
 									oReviewInfo.Update();
 
 									this.Content[nCurContentPos].SetDirectParaPr(oParaPr);

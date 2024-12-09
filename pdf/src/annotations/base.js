@@ -58,8 +58,8 @@
         this._doc                   = undefined;
         this._inReplyTo             = undefined;
         this._intent                = undefined;
-        this._lock                  = undefined;
-        this._lockContent           = undefined;
+        this._lock                  = undefined; // pdf format lock
+        this._lockContent           = undefined; // pdf format lock
         this._modDate               = undefined;
         this._name                  = undefined;
         this._opacity               = 1;
@@ -90,6 +90,9 @@
             rollover:   null
         }
         this._wasChanged = false;
+        this.Lock = new AscCommon.CLock();
+
+        this.uid = "";
 
         this.SetDocument(oDoc);
         this.SetName(sName);
@@ -99,6 +102,18 @@
     CAnnotationBase.prototype = Object.create(AscFormat.CBaseNoIdObject.prototype);
 	CAnnotationBase.prototype.constructor = CAnnotationBase;
     
+    CAnnotationBase.prototype.SetUserId = function(sUID) {
+        if (this.uid == sUID) {
+            return;
+        }
+
+        AscCommon.History.Add(new CChangesPDFAnnotUserId(this, this.uid, sUID));
+        this.uid = sUID;
+    };
+    CAnnotationBase.prototype.GetUserId = function() {
+        return this.uid;
+    };
+
     CAnnotationBase.prototype.GetDocContent = function() {
         return null;
     };
@@ -261,7 +276,6 @@
         let oViewer = editor.getDocumentRenderer();
 
         if (this._wasChanged !== isChanged && oViewer.IsOpenAnnotsInProgress == false) {
-            // AscCommon.History.Add(new CChangesPDFAnnotWasChanged(this, this.IsChanged(), isChanged));
             this._wasChanged = isChanged;
             this.SetDrawFromStream(!isChanged);
         }
@@ -278,13 +292,13 @@
         if (originView) {
             let aOrigRect = this.GetOrigRect();
             
-            let X = aOrigRect[0] >> 0;
-            let Y = aOrigRect[1] >> 0;
+            let X = aOrigRect[0];
+            let Y = aOrigRect[1];
 
             if (this.IsHighlight())
                 AscPDF.startMultiplyMode(oGraphicsPDF.GetContext());
             
-            oGraphicsPDF.DrawImageXY(originView, X, Y);
+            oGraphicsPDF.DrawImageXY(originView, X, Y, undefined, true);
             AscPDF.endMultiplyMode(oGraphicsPDF.GetContext());
         }
 
@@ -321,6 +335,9 @@
     CAnnotationBase.prototype.GetOriginView = function(nPageW, nPageH) {
         if (this._apIdx == -1)
             return null;
+
+        nPageW = Math.round(nPageW);
+        nPageH = Math.round(nPageH);
 
         let oViewer = editor.getDocumentRenderer();
         let oFile   = oViewer.file;
@@ -377,7 +394,7 @@
         return canvas;
     };
     /**
-     * Returns AP info of this field.
+     * Returns AP info of this annotation.
 	 * @memberof CAnnotationBase
 	 * @typeofeditors ["PDF"]
      * @returns {Object}
@@ -429,9 +446,9 @@
             let aPath;
             for (let i = 0; i < this._gestures.length; i++) {
                 aPath = this._gestures[i];
-                for (let j = 0; j < aPath.length; j++) {
-                    aPath[j].x += nDeltaX;
-                    aPath[j].y += nDeltaY;
+                for (let j = 0; j < aPath.length; j+=2) {
+                    aPath[j] += nDeltaX;
+                    aPath[j+1] += nDeltaY;
                 }
             }
         }
@@ -513,6 +530,9 @@
     CAnnotationBase.prototype.IsFreeText = function() {
         return false;
     };
+    CAnnotationBase.prototype.IsStamp = function() {
+        return false;
+    };
     CAnnotationBase.prototype.SetNeedRecalc = function(bRecalc, bSkipAddToRedraw) {
         if (bRecalc == false) {
             this._needRecalc = false;
@@ -567,6 +587,12 @@
     };
     CAnnotationBase.prototype.GetPopupIdx = function() {
         return this._popupIdx;
+    };
+    CAnnotationBase.prototype.SetParentPage = function(oParent) {
+        this.parentPage = oParent;
+    };
+    CAnnotationBase.prototype.GetParentPage = function() {
+        return this.parentPage;
     };
     CAnnotationBase.prototype.SetPage = function(nPage) {
         let nCurPage = this.GetPage();
@@ -639,16 +665,18 @@
     CAnnotationBase.prototype._AddReplyOnOpen = function(oReplyInfo) {
         let oReply = new AscPDF.CAnnotationText(oReplyInfo["UniqueName"], this.GetPage(), [], this.GetDocument());
 
-        oReply.SetContents(oReplyInfo["Contents"]);
         oReply.SetCreationDate(AscPDF.ParsePDFDate(oReplyInfo["CreationDate"]).getTime());
         oReply.SetModDate(AscPDF.ParsePDFDate(oReplyInfo["LastModified"]).getTime());
         oReply.SetAuthor(oReplyInfo["User"]);
         oReply.SetDisplay(window["AscPDF"].Api.Objects.display["visible"]);
         oReply.SetPopupIdx(oReplyInfo["Popup"]);
         oReply.SetSubject(oReplyInfo["Subj"]);
+        oReply.SetUserId(oReplyInfo["OUserID"]);
 
         oReply.SetReplyTo(this);
         oReply.SetApIdx(oReplyInfo["AP"]["i"]);
+
+        oReply.SetContents(oReplyInfo["Contents"]);
         
         this._replies.push(oReply);
     };
@@ -751,9 +779,10 @@
         }
 
         if (oFirstCommToEdit.GetContents() != oCommentData.m_sText) {
-            oFirstCommToEdit.SetContents(oCommentData.m_sText);
             oFirstCommToEdit.SetModDate(oCommentData.m_sOOTime);
             oFirstCommToEdit.SetAuthor(oCommentData.m_sUserName);
+            oFirstCommToEdit.SetUserId(oCommentData.m_sUserId);
+            oFirstCommToEdit.SetContents(oCommentData.m_sText);
         }
 
         let aReplyToDel = [];
@@ -819,7 +848,7 @@
         let sModDate = this.GetModDate();
         if (sModDate)
             oAscCommData.asc_putOnlyOfficeTime(sModDate.toString());
-        oAscCommData.asc_putUserId(editor.documentUserId);
+        oAscCommData.asc_putUserId(this.GetUserId());
         oAscCommData.asc_putUserName(this.GetAuthor());
         oAscCommData.asc_putSolved(false);
         oAscCommData.asc_putQuoteText("");
@@ -1161,6 +1190,13 @@
         if (nEndPos != memory.GetCurPosition())
             Flags |= (1 << 6);
 
+        // uid
+        let sUserId = this.GetUserId();
+        if (sUserId) {
+            Flags |= (1 << 7);
+            memory.WriteString(sUserId);
+        }
+
         nEndPos = memory.GetCurPosition();
         memory.Seek(nPosForFlags);
         memory.WriteLong(Flags);
@@ -1276,7 +1312,7 @@
         let nStartPos = memory.GetCurPosition();
         memory.Skip(4);
 
-        this.draw(memory.AnnotsRenderer); // для каждой страницы инициализируется свой renderer
+        this.draw(memory.docRenderer); // для каждой страницы инициализируется свой renderer
 
         // запись длины комманд
         let nEndPos = memory.GetCurPosition();

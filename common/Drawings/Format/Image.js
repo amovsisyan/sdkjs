@@ -173,6 +173,19 @@
 				return this.blipFill.RasterImageId;
 			return null;
 		};
+		CImageShape.prototype.getTransparent = function () {
+			if (isRealObject(this.blipFill)) {
+				return this.blipFill.getTransparent();
+			}
+			return null;
+		};
+		CImageShape.prototype.setTransparent = function (v) {
+			if(this.blipFill) {
+				let oNewBlipFill = this.blipFill.createDuplicate();
+				oNewBlipFill.setTransparent(v);
+				this.setBlipFill(oNewBlipFill);
+			}
+		};
 
 		CImageShape.prototype.getSnapArrays = function (snapX, snapY) {
 			var transform = this.getTransformMatrix();
@@ -585,7 +598,7 @@
 					if (oApi) {
 						sImageId = AscCommon.getFullImageSrc2(sImageId);
 						var _img = oApi.ImageLoader.map_image_index[sImageId];
-						if ((_img && _img.Status === AscFonts.ImageLoadStatus.Loading) || (_img && _img.Image) || graphics.isBoundsChecker() || graphics.isPdf()) {
+						if ((_img && _img.Status === AscFonts.ImageLoadStatus.Loading) || (_img && _img.Image) || graphics.isBoundsChecker()) {
 							this.brush = CreateBrushFromBlipFill(this.blipFill);
 							this.pen = null;
 						} else {
@@ -654,6 +667,26 @@
 				stroke.Fill.convertToPPTXMods();
 			}
 			this.spPr.setLn(stroke);
+		};
+		CImageShape.prototype.changeFill = function (unifill) {
+
+			if (this.recalcInfo.recalculateBrush) {
+				this.recalculateBrush();
+			}
+			var unifill2 = AscFormat.CorrectUniFill(unifill, this.brush, this.getEditorType());
+			unifill2.convertToPPTXMods();
+			this.setFill(unifill2);
+		};
+		CImageShape.prototype.setFill = function (fill) {
+
+			this.spPr.setFill(fill);
+		};
+
+		CImageShape.prototype.hasCrop = function () {
+			if(this.blipFill && this.blipFill.srcRect) {
+				return true;
+			}
+			return false;
 		};
 
 
@@ -882,14 +915,10 @@
 			}
 			var oBrush = new AscFormat.CUniFill();
 			oBrush.fill = oBlipFill;
-			if (Array.isArray(oBlipFill.Effects)) {
-				for (var nEffect = 0; nEffect < oBlipFill.Effects.length; ++nEffect) {
-					var oEffect = oBlipFill.Effects[nEffect];
-					if (oEffect && oEffect instanceof AscFormat.CAlphaModFix && AscFormat.isRealNumber(oEffect.amt)) {
-						oBrush.setTransparent(255 * oEffect.amt / 100000);
-						break;
-					}
-				}
+
+			let nTransparent = oBlipFill.getTransparent();
+			if(AscFormat.isRealNumber(nTransparent)) {
+				oBrush.setTransparent(nTransparent);
 			}
 			return oBrush;
 		}
