@@ -55,7 +55,8 @@
 		Html        : 2,
 		Internal    : 4,
 		HtmlElement : 8,
-		Rtf         : 16
+		Rtf         : 16,
+		Image       : 32
 	};
 	var c_oClipboardPastedFrom       = {
 		Word        : 0,
@@ -964,13 +965,16 @@
 				{
 					this.Api.asc_CheckCopy(copy_data, c_oAscClipboardDataFormat.Text | c_oAscClipboardDataFormat.Html | c_oAscClipboardDataFormat.Internal);
 
-					//change write order
-					//if push "image/png" last, data don't put in clipboard
+					//supports only "text/plain", "text/html", and "image/png" types
+					//"text/uri-list" not support
+					//https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/modules/clipboard/clipboard_writer.cc;drc=e882b8e4a8272f65cb14c608d3d2bc4f0512aa20;l=304
+					//https://webkit.org/blog/10855/async-clipboard-api/
 					const data = [new ClipboardItem({
 						"text/plain"        : new Blob([copy_data.data[c_oAscClipboardDataFormat.Text]], {type: "text/plain"}),
 						"text/html"         : new Blob([copy_data.data[c_oAscClipboardDataFormat.Html]], {type: "text/html"}),
-						//"image/png" : window._blob,
-						"web text/x-custom" : new Blob(["asc_internalData2;" + copy_data.data[c_oAscClipboardDataFormat.Internal]], {type: "web text/x-custom"})
+						"image/png"         : copy_data.data[c_oAscClipboardDataFormat.Image]
+						/*"web text/x-custom" : new Blob(["asc_internalData2;" + copy_data.data[c_oAscClipboardDataFormat.Internal]], {type: "web text/x-custom"})/*,//not support
+						*/
 					})];
 
 					navigator.clipboard.write(data).then(function(){},function(){});

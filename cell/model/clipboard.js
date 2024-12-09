@@ -311,7 +311,7 @@
 			return this;
 		}
 
-		Clipboard.prototype.checkCopyToClipboard = function (ws, _clipboard, _formats) {
+		Clipboard.prototype.checkCopyToClipboard = function (ws, _clipboard, _formats, callback) {
 			var _data = null;
 			var wb = window["Asc"]["editor"].wb;
 

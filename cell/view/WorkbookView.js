@@ -3218,12 +3218,12 @@
     return g_clipboardExcel.bIsEmptyClipboard(this.getCellEditMode());
   };
 
-	WorkbookView.prototype.checkCopyToClipboard = function (_clipboard, _formats) {
+	WorkbookView.prototype.checkCopyToClipboard = function (_clipboard, _formats, callback) {
 		if (this.isProtectedFromCut()) {
 			return false;
 		}
 		var ws = this.getWorksheet();
-		g_clipboardExcel.checkCopyToClipboard(ws, _clipboard, _formats);
+		g_clipboardExcel.checkCopyToClipboard(ws, _clipboard, _formats, callback);
 	};
 
   WorkbookView.prototype.pasteData = function(_format, data1, data2, text_data, doNotShowButton, callback) {

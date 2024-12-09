@@ -934,8 +934,9 @@ var editor;
     }
   };
 
-  spreadsheet_api.prototype.asc_CheckCopy = function (_clipboard /* CClipboardData */, _formats) {
-    return this.wb.checkCopyToClipboard(_clipboard, _formats);
+  spreadsheet_api.prototype.asc_CheckCopy = function (_clipboard /* CClipboardData */, _formats, callback) {
+	  //callback - for async operation on copy to clipboard. for example - generate image blob
+	  return this.wb.checkCopyToClipboard(_clipboard, _formats, callback);
   };
 
   spreadsheet_api.prototype.asc_SelectionCut = function () {
