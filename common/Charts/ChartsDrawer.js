@@ -7863,7 +7863,7 @@ drawParetoChart.prototype.drawParetoLine = function () {
 		&& this.cChartSpace.chart.plotArea.plotAreaRegion.series[1];
 	if (seria) {
 		const pen = seria.compiledSeriesPen;
-		this.cChartDrawer.drawPath(this.linePath, pen, brush);
+		this.cChartDrawer.drawPath(this.linePath, pen);
 	}
 };
 
