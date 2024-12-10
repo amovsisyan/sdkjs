@@ -2781,6 +2781,8 @@ CChartsDrawer.prototype =
 				return new CCachedWaterfall(type, seria, numLit, axisProperties);
 			case AscFormat.SERIES_LAYOUT_FUNNEL:
 				return new CCachedFunnel(type, numLit, axisProperties);
+			case AscFormat.SERIES_LAYOUT_BOX_WHISKER:
+				return new CCachedBoxWhisker(type, seria, numLit, strLit, axisProperties);
 			default:
 				return null;
 		}
@@ -7855,6 +7857,14 @@ drawParetoChart.prototype.draw = function () {
 };
 
 drawParetoChart.prototype.drawParetoLine = function () {
+	console.log(AscCommonExcel.getPercentileExclusive([31, 115, 116, 119], 0.25 * 1))
+	console.log(AscCommonExcel.getPercentileExclusive([31, 115, 116, 119], 0.25 * 2))
+	console.log(AscCommonExcel.getPercentileExclusive([31, 115, 116, 119], 0.25 * 3))
+
+	console.log(AscCommonExcel.getPercentile([31, 115, 116, 119], 0.25 * 1))
+	console.log(AscCommonExcel.getPercentile([31, 115, 116, 119], 0.25 * 2))
+	console.log(AscCommonExcel.getPercentile([31, 115, 116, 119], 0.25 * 3))
+
 	if (!this.linePath) {
 		return;
 	}
@@ -18966,6 +18976,143 @@ CColorObj.prototype =
 		// Return the normalized number with the appropriate scale
 		num = (count >= 0) ? roundedNum * Math.pow(10, count) : roundedNum / Math.pow(10, -count);
 		return isNegative ? -num : num;
+	}
+
+	function CCachedBoxWhisker(type, seria, numLit, strLit, axisProperties) {
+		CCachedChartExData.call(this, type, []);
+		this.exclusive = true;
+		this.mean = false;
+		this._calculate(seria, numLit, strLit, axisProperties);
+	}
+
+	AscFormat.InitClassWithoutType(CCachedBoxWhisker, CCachedChartExData);
+
+	CCachedBoxWhisker.prototype._calculate = function (seria, numLit, strLit, axisProperties) {
+		if (!numLit || !axisProperties || !numLit.pts) {
+			return;
+		}
+
+		const ptsToArray = function (arr) {
+			const result = [];
+			for (let i = 0; i < arr.length; i++) {
+				result.push(arr[i].val);
+			}
+			return result;
+		}
+
+		const constructArrays = function (strCache, numArr) {
+			const dictSet = {}
+			const resultingArr = [];
+			let index = 0;
+
+			const getVal = function (strCacheIdx) {
+				for (; index < numArr.length; index++) {
+					if (numArr[index].idx === strCacheIdx) {
+						return numArr[index].val;
+					}
+				}
+			}
+			for (let i = 0; i < strCache.length; i++) {
+				const key = strCache[i].val;
+				if (dictSet[key] === undefined) {
+					resultingArr.push([getVal(strCache[i].idx)]);
+					dictSet[key] = resultingArr.length - 1;
+				} else {
+					resultingArr[dictSet[key]].push(getVal(strCache[i].idx));
+				}
+			}
+
+			return resultingArr;
+		}
+
+		const strCache = strLit && strLit.pts;
+
+		if (strCache) {
+			// get arrays of values for each string
+			const resultingArr = constructArrays(strCache, numLit.pts);
+			for (let i = 0; i < resultingArr.length; i++) {
+				this.data.push(this._createBox(resultingArr[i], axisProperties));
+			}
+		} else {
+			// if there is no string cache, then create one
+			// {start, first_quartile, median, second_quartile, end}
+			this.data.push(this._createBox(ptsToArray(numLit.pts), axisProperties));
+		}
+		console.log(this.data)
+	}
+
+	CCachedBoxWhisker.prototype._createBox = function (arr, axisProperties) {
+
+		if (arr.length === 0) {
+			return {bEmpty : true}
+		}
+
+		const getLowest = function (arr, threshold) {
+			for (let i = 0; i < arr.length; i++) {
+				if (arr[i] >= threshold) {
+					return arr[i];
+				}
+			}
+			return null;
+		}
+
+		const getHighest = function (arr, threshold) {
+			for (let i = arr.length - 1; i >= 0; i--) {
+				if (arr[i] <= threshold) {
+					return arr[i];
+				}
+			}
+			return null;
+		}
+
+		const getMean = function (arr) {
+			let sum = 0;
+			for (let i = 0; i < arr.length; i++) {
+				sum += arr[i];
+			}
+			return sum;
+		}
+		const fMedian = AscCommonExcel.getMedian(arr);
+
+		// Get the first quartile using the appropriate method based on `exclusive`
+		const fFirstQuartile = this.exclusive
+			? AscCommonExcel.getPercentileExclusive(arr, 0.25, true)
+			: AscCommonExcel.getPercentile(arr, 0.25, true);
+
+		// Get the value of the first quartile, convert "#!Num" to null
+		const fFirstQuartileVal = fFirstQuartile && fFirstQuartile.getValue() !== '#NUM!' ? fFirstQuartile.getValue() : null;
+
+		// Get the second quartile using the appropriate method based on `exclusive`
+		const fSecondQuartile = this.exclusive
+			? AscCommonExcel.getPercentileExclusive(arr, 0.75, true)
+			: AscCommonExcel.getPercentile(arr, 0.75, true);
+
+		// Get the value of the second quartile, convert "#!Num" to null
+		const fSecondQuartileVal = fSecondQuartile && fSecondQuartile.getValue() !== '#NUM!' ? fSecondQuartile.getValue() : null;
+
+		// Calculate the interquartile range (IQR), ensuring null values are handled
+		const fIQR = (fSecondQuartileVal !== null && fFirstQuartileVal !== null)
+			? fSecondQuartileVal - fFirstQuartileVal
+			: null;
+
+		// this multiplier is used insede the formula to detect outliers
+		const fMulitplier = 1.5;
+		const fLowerThreshold = fFirstQuartileVal - (fMulitplier * fIQR);
+		const fUpperThreshold = fSecondQuartileVal + (fMulitplier * fIQR);
+
+		// dont return lowest and highest if arr length is less than 3
+		const fLowestNum = arr.length > 3 ? getLowest(arr, fLowerThreshold) : null;
+		const fHighestNum = arr.length > 3 ? getHighest(arr, fUpperThreshold) : null;
+		const fMean = this.mean ? getMean(arr) : null;
+
+		this._chartExSetAxisMinAndMax(axisProperties.val, fLowestNum);
+		this._chartExSetAxisMinAndMax(axisProperties.val, fFirstQuartileVal);
+		this._chartExSetAxisMinAndMax(axisProperties.val, fMedian.getValue());
+		this._chartExSetAxisMinAndMax(axisProperties.val, fMean);
+		this._chartExSetAxisMinAndMax(axisProperties.val, fSecondQuartileVal);
+		this._chartExSetAxisMinAndMax(axisProperties.val, fHighestNum);
+
+		return {fStart: fLowestNum, fFirstQuartile: fFirstQuartileVal, fMedian: fMedian.getValue(), fMean: fMean,  fSecondQuartile: fSecondQuartileVal, fEnd: fHighestNum}
 	}
 
 
