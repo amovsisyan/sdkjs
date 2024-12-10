@@ -140,7 +140,7 @@ CFraction.prototype.drawBarFraction = function(PDSE)
 	let pr = GetPr(this).Copy();
 	let font = pr.FontFamily.Name;
 
-    var penW = calculateAdjustedSize(MathFontData[font].fractionRuleThickness, pr.FontSize, this);
+    var penW = AscMath.CalculateAdjustedSize(AscMath.FontMathConstants.FractionRuleThickness, pr.FontFamily.Name, pr.FontSize);
     var PosLine = this.ParaMath.GetLinePosition(PDSE.Line, PDSE.Range);
 	var numHeight = this.elements[0][0].size.height;
 
@@ -151,13 +151,13 @@ CFraction.prototype.drawBarFraction = function(PDSE)
 
 	var x1 = this.pos.x + PosLine.x + this.GapLeft,
         x2 = this.pos.x + PosLine.x + this.size.width - this.GapRight,
-        y1 = this.pos.y + PosLine.y + numHeight  - penW/2 - nH - calculateAdjustedSize(MathFontData[font].AxisHeight, pr.FontSize, this)
+        y1 = this.pos.y + PosLine.y + numHeight //- penW/2
 
     if(this.Pr.type == BAR_FRACTION)
     {
         PDSE.Graphics.SetFont(pr);
         this.Make_ShdColor(PDSE, this.Get_CompiledCtrPrp());
-        PDSE.Graphics.drawHorLine(0, y1, x1, x2, penW);
+      //  PDSE.Graphics.drawHorLine(0, y1, x1, x2, penW);
     }
 
     CMathBase.prototype.Draw_Elements.call(this, PDSE);
@@ -459,6 +459,8 @@ CFraction.prototype.Recalculate_Range = function(PRS, ParaPr, Depth)
 CFraction.prototype.recalculateBarFraction = function(oMeasure, bNumBarFraction, bDenBarFraction)
 {
 	var mgCtrPrp = this.Get_TxtPrControlLetter();
+	let pr = GetPr(this).Copy();
+	let font = pr.FontFamily.Name;
 
     var num = this.elements[0][0].size,
         den = this.elements[1][0].size;
@@ -468,7 +470,7 @@ CFraction.prototype.recalculateBarFraction = function(oMeasure, bNumBarFraction,
 
     var width  = NumWidth > DenWidth ? NumWidth : DenWidth;
     var height = num.height + den.height;
-    var ascent = num.ascent// + den.ascent
+    var ascent = num.ascent
 
     width += this.GapLeft + this.GapRight;
 
@@ -483,7 +485,7 @@ CFraction.prototype.recalculateSkewed = function(oMeasure)
 
 	let pr = GetPr(this).Copy();
 	let font = pr.FontFamily.Name;
-	var dW = calculateAdjustedSize(MathFontData[font].skewedFractionHorizontalGap, pr.FontSize, this);
+	var dW = AscMath.CalculateAdjustedSize(AscMath.FontMathConstants.SkewedFractionHorizontalGap, pr.FontFamily.Name, pr.FontSize);
 
 	var width  = num.width + dW + den.width;
     var height = num.height + den.height;
@@ -523,8 +525,8 @@ CFraction.prototype.setPosition = function(pos, PosInfo)
         g_oTextMeasurer.SetFont(pr);
 		let font = pr.FontFamily.Name;
 
-		var dW = calculateAdjustedSize(MathFontData[font].skewedFractionHorizontalGap, pr.FontSize, this);
-		var dH = calculateAdjustedSize(MathFontData[font].skewedFractionVerticalGap, pr.FontSize, this);
+		var dW = AscMath.CalculateAdjustedSize(AscMath.FontMathConstants.SkewedFractionHorizontalGap, pr.FontFamily.Name, pr.FontSize);
+		var dH = AscMath.CalculateAdjustedSize(AscMath.FontMathConstants.SkewedFractionVerticalGap, pr.FontFamily.Name, pr.FontSize);
 
         var Numerator   = this.Content[0],
             Denominator = this.Content[1];
@@ -819,39 +821,39 @@ CNumerator.prototype.constructor = CNumerator;
 CNumerator.prototype.recalculateSize = function()
 {
 	let pr		= GetPr(this);
-	g_oTextMeasurer.SetFont(pr);
     var arg = this.elements[0][0].size;
-    var Descent = arg.height - arg.ascent; // baseLine
-    g_oTextMeasurer.SetFont(pr);
-    var Height = g_oTextMeasurer.GetHeight();
-
-    var gapNum, minGap;
 
     if(this.Parent.kind == MATH_LIMIT || this.Parent.kind == MATH_GROUP_CHARACTER)
     {
-        //gapNum = Height/2.4;
-        //gapNum = Height/2.97;
-        //gapNum = Height/2.97 - Height/10.5;
-        gapNum = Height/4.14;
-        minGap = Height/13.8;
-
-        //var delta = 0.8076354679802956*gapNum - Descent;
-        var delta = gapNum - Descent;
-        //this.gap = delta > minGap ? delta - 0.95*minGap: minGap;
-        this.gap = delta > minGap ? delta: minGap;
     }
     else    // Fraction
     {
-        gapNum = Height/3.05;
-        minGap = Height/9.77;
-
-        var delta = gapNum - Descent;
-
     }
 
+	if (this.Parent.Parent.Parent && this.Parent.Parent.Parent.kind === MATH_FRACTION)
+	{
+		AscCommon.g_oTextMeasurer.SetFont(pr);
+		let Frac = AscCommon.g_oTextMeasurer.Measure2Code("1".charCodeAt(0));
+		let one = Frac.Height - Frac.Ascent;
+
+		let lineDescentNum	= this.elements[0][0].size.height - this.elements[0][0].size.ascent;
+		let nUp				= AscMath.CalculateAdjustedSize(AscMath.FontMathConstants.FractionNumeratorShiftUp, pr.FontFamily.Name, pr.FontSize);
+		this.gap			= nUp// - one - lineDescentNum
+	}
+	else if (this.Parent.Pr.type === BAR_FRACTION)
+	{
+		AscCommon.g_oTextMeasurer.SetFont(pr);
+		let Frac = AscCommon.g_oTextMeasurer.Measure2Code("1".charCodeAt(0));
+		let one = Frac.Height - Frac.Ascent;
+
+		let lineDescentNum	= this.elements[0][0].size.height - this.elements[0][0].size.ascent;
+		let nUp				= AscMath.CalculateAdjustedSize(AscMath.FontMathConstants.FractionNumeratorDisplayStyleShiftUp, pr.FontFamily.Name, pr.FontSize);
+		this.gap			= nUp //- one - lineDescentNum
+	}
+
     var width = arg.width;
-    var height = arg.height;
-    var ascent = arg.ascent;
+    var height = arg.height //+ this.gap;
+    var ascent = arg.ascent //+ this.gap;
 
     this.size.height = height;
     this.size.width  = width;
@@ -859,21 +861,7 @@ CNumerator.prototype.recalculateSize = function()
 };
 CNumerator.prototype.setPosition = function(pos, PosInfo)
 {
-	let pr		= GetPr(this);
-	let font	= pr.FontFamily.Name;
-	g_oTextMeasurer.SetFont(pr);
-
-	if (this.Parent.Pr.type === BAR_FRACTION)
-	{
-		AscCommon.g_oTextMeasurer.SetFont(pr);
-		let Frac = AscCommon.g_oTextMeasurer.Measure2Code("1".charCodeAt(0));
-		let one = Frac.Height - Frac.Ascent;
-
-		let lineDescentNum	= this.elements[0][0].size.height - this.elements[0][0].size.ascent;
-		let nUp				= getSize(MathFontData[font].fractionNumeratorDisplayStyleShiftUp.value, pr.FontSize, this);
-		pos.y				-= nUp - lineDescentNum - one;
-	}
-
+	pos.y -= this.gap;
 	CFractionBase.prototype.setPosition.call(this, pos, PosInfo);
 };
 
@@ -894,32 +882,29 @@ CDenominator.prototype.recalculateSize = function()
 {
     var arg = this.elements[0][0].size;
 
-    var mgCtrPrp = this.Get_TxtPrControlLetter();
-
-    var Ascent = arg.ascent; //-  4.939*mgCtrPrp.FontSize/36;
-
-    g_oTextMeasurer.SetFont(mgCtrPrp);
-    var Height = g_oTextMeasurer.GetHeight();
-
-    var gapDen, minGap;
-
     if(this.Parent.kind == MATH_PRIMARY_LIMIT || this.Parent.kind == MATH_GROUP_CHARACTER)
     {
-        gapDen = Height/2.6;
-        minGap = Height/10;
     }
     else // Fraction
     {
-        gapDen = Height/2.03;
-        minGap = Height/6.1;
     }
 
-    var delta = gapDen - Ascent;
-    this.gap = 0;
+	let pr = GetPr(this);
+
+	if (this.Parent.Parent.Parent && this.Parent.Parent.Parent.kind === MATH_FRACTION)
+	{
+		let FractionDenominatorShiftDown	= AscMath.CalculateAdjustedSize(AscMath.FontMathConstants.FractionDenominatorShiftDown, pr.FontFamily.Name, pr.FontSize);
+		this.gap = FractionDenominatorShiftDown
+	}
+	else if (this.Parent.Pr.type === BAR_FRACTION)
+	{
+		let FractionDenominatorShiftDown	= AscMath.CalculateAdjustedSize(AscMath.FontMathConstants.FractionDenominatorDisplayStyleShiftDown, pr.FontFamily.Name, pr.FontSize);
+		this.gap = FractionDenominatorShiftDown //+ lineDescentNum ;
+	}
 
     var width = arg.width;
-    var height = arg.height;
-    var ascent = arg.ascent;
+    var height = arg.height //+ this.gap
+    var ascent = arg.ascent //+ this.gap
 
     this.size.height = height;
     this.size.width  = width ;
@@ -928,63 +913,15 @@ CDenominator.prototype.recalculateSize = function()
 CDenominator.prototype.setPosition = function(pos, PosInfo)
 {
 	let pr = GetPr(this);
+	AscCommon.g_oTextMeasurer.SetFont(pr);
+	let Frac = AscCommon.g_oTextMeasurer.Measure2Code("1".charCodeAt(0));
 
-	let font							= pr.FontFamily.Name;
-	let FractionDenominatorShiftDown	= calculateAdjustedSize(MathFontData[font].fractionDenominatorDisplayStyleShiftDown, pr.FontSize, this);
-
-	pos.y -= this.size.height;
-	pos.y += FractionDenominatorShiftDown
-	//pos.y += lineDescentNum;
+	pos.y -=  Frac.Height - this.size.height ;
+	pos.y += this.gap;
 
 	CFractionBase.prototype.setPosition.call(this, pos, PosInfo);
 };
 
-function calculateAdjustedSize(FractionRuleThickness, fontSize, oThis) {
-	const { value, deviceTable } = FractionRuleThickness;
-
-	if (!deviceTable)
-	{
-		return getSize(value, fontSize, oThis);
-	}
-
-	const { startSize, endSize, deltaFormat, deltaValue } = deviceTable;
-
-	if (fontSize < startSize || fontSize > endSize) {
-		return getSize(value, fontSize, oThis);
-	}
-
-	const index = fontSize - startSize;
-	let adjustment = 0;
-	switch (deltaFormat) {
-		case 1:
-			const deltaIndex1 = Math.floor(index / 8);
-			const bitShift1 = (7 - (index % 8)) * 2;
-			adjustment = (deltaValue[deltaIndex1] >> bitShift1) & 0x03;
-			adjustment = (adjustment > 1) ? adjustment - 4 : adjustment;
-			break;
-
-		case 2:
-			const deltaIndex2 = Math.floor(index / 4);
-			adjustment = (deltaValue[deltaIndex2] >> ((3 - (index % 4)) * 4)) & 0x0F;
-			adjustment = (adjustment > 7) ? adjustment - 16 : adjustment;
-			break;
-
-		case 3:
-			const deltaIndex3 = Math.floor(index / 2);
-			adjustment = (deltaValue[deltaIndex3] >> ((1 - (index % 2)) * 8)) & 0xFF;
-			adjustment = (adjustment > 127) ? adjustment - 256 : adjustment;
-			break;
-	}
-	return getSize(value + adjustment, fontSize, oThis);
-}
-function getSize(fUnits, fontSize, oThis)
-{
-	let pr = GetPr(oThis);
-
-	let font = pr.FontFamily.Name;
-	let font_m_lUnits_Per_Em = MathFontData[font].m_lUnits_Per_Em;
-	return fUnits / font_m_lUnits_Per_Em * (fontSize / 72 * 25.4)
-}
 
 function GetPr(oThis)
 {
@@ -1004,189 +941,6 @@ function GetPr(oThis)
 	}
 }
 
-let MathFontData = {
-	'Cambria Math': {
-		AxisHeight: {
-			value: 585,
-			deviceTable : {
-				startSize: 10,
-				endSize: 109,
-				deltaFormat: 1,
-				deltaValue: [
-					1, 1, 1, 0, 1, 1, 0, 0, 1, 1,
-					0, 0, 1, 0, 0, 0, 1, 0, 0, 0,
-					0, 0, 0, 0, 0, 0, 0, -1, 0, 0,
-					0, 0, 1, 1, 0, 0, 1, 1, 0, 0,
-					1, 0, 0, 0, 1, 0, 0, 0, 0, 0,
-					1, 0, 0, 1, 1, 0, 0, 0, 0, -1,
-					1, 1, 0, 1, 1, 1, 0, 1, 1, 0,
-					0, 1, 1, 0, 0, 1, 0, 0, 0, 1,
-					1, 1, 0, 1, 0, 0, 0, 0, 0, 0,
-					0, 1, 1, 1, 0, 1, 1, 0, 0, 1
-				],
-			}
-		},
-		fractionNumeratorGapMin: {
-			value: 133,
-			deviceTable : {
-				startSize: 6,
-				endSize: 38,
-				deltaFormat: 1,
-				deltaValue: [
-					1, 1, 0, 0, 0, 0, 0, 0, 0,
-					0, 0, 0, 0, 0, 0, 0, 0, 0,
-					-1, 0, 0, 0, 0, 0, 0, 0, 0,
-					0, 0, 0, 1, 1, 1
-				]
-			},
-		},
-		fractionNumDisplayStyleGapMin: {
-			value: 260,
-		},
-		fractionRuleThickness: {
-			value: 133,
-			deviceTable: {
-				startSize: 6,
-				endSize: 100,
-				deltaFormat: 1,
-				deltaValue: [
-					1, 1, 0, 0, 0, 0, 0, 0, 0, 0,
-					0, 0, 0, 0, 0, 0, 0, 0, -1, 0,
-					0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					0, 0, 0, -1, -1, 0, 0, 0, 0, 0,
-					0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-					0, 0, 0, 0, 0, 0, 0, 0, 0, 1
-				]
-			}
-		},
-		fractionNumeratorDisplayStyleShiftUp: {
-			value: 1550,
-		},
-		fractionDenominatorDisplayStyleShiftDown: {
-			value: 1370,
-		},
-		fractionDenomDisplayStyleGapMin: {
-			value: 260,
-		},
-		subscriptBaselineDropMin: {
-			value: 320,
-		},
-		superscriptBaselineDropMax: {
-			value: 460,
-		},
-        superscriptShiftUp: {
-            value: 750,
-            deviceTable : {
-				startSize: 12,
-				endSize: 12,
-				deltaFormat: 1,
-				deltaValue:[1],
-			}
-        },
-		superscriptShiftUpCramped : {
-			value: 615,
-			deviceTable : {
-				startSize: 12,
-				endSize: 12,
-				deltaFormat: 1,
-				deltaValue:[1],
-			}
-		},
-        superscriptBottomMin: {
-            value: 239,
-        },
-		superscriptBottomMaxWithSubscript: {
-			value: 765,
-		},
-
-		skewedFractionHorizontalGap: {
-			value: 800,
-		},
-		skewedFractionVerticalGap: {
-			value: 133,
-		},
-
-		ascender: 1593,
-		descender:-455,
-		m_lUnits_Per_Em: 2048,
-		os2_sTypoLineGap: 353,
-	},
-	'Asana Math': {
-		AxisHeight: {
-			value: 271,
-		},
-		fractionRuleThickness: {
-			value: 59,
-		},
-		fractionNumeratorGapMin : {
-			value: 116,
-			deviceTable : {
-				startSize: 6,
-				endSize: 23,
-				deltaFormat: 1,
-				deltaValue: [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
-			}
-		},
-
-		fractionNumDisplayStyleGapMin: {
-			value: 130,
-		},
-		fractionNumeratorDisplayStyleShiftUp: {
-			value: 725,
-		},
-		fractionDenominatorDisplayStyleShiftDown: {
-			value: 710,
-		},
-		fractionDenomDisplayStyleGapMin: {
-			value: 120,
-		},
-		subscriptBaselineDropMin: {
-			value: 222,
-		},
-		superscriptBaselineDropMax: {
-			value: 230,
-		},
-        superscriptShiftUp: {
-            value: 361,
-            deviceTable : {
-				startSize: 12,
-				endSize: 12,
-				deltaFormat: 1,
-				deltaValue:[1],
-			}
-        },
-		superscriptShiftUpCramped : {
-			value: 296,
-			deviceTable : {
-				startSize: 12,
-				endSize: 12,
-				deltaFormat: 1,
-				deltaValue:[1],
-			}
-		},
-        superscriptBottomMin: {
-            value: 154,
-        },
-
-		superscriptBottomMaxWithSubscript: {
-			value: 379,
-		},
-
-		skewedFractionHorizontalGap: {
-			value: 400,
-		},
-		skewedFractionVerticalGap: {
-			value: 60,
-		},
-
-		ascender: 743,
-		descender:-288,
-		m_lUnits_Per_Em: 1024,
-		os2_sTypoLineGap: 50,
-	}
-}
 
 //--------------------------------------------------------export----------------------------------------------------
 window['AscCommonWord'] = window['AscCommonWord'] || {};
