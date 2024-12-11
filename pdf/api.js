@@ -1945,6 +1945,14 @@
 			oDoc.BlurActiveObject();
 		AscCommon.DocumentEditorApi.prototype.asc_Save.call(this, isAutoSave, isIdle);
 	};
+	PDFEditorApi.prototype._onEndLoadSdk = function() {
+		AscCommon.DocumentEditorApi.prototype._onEndLoadSdk.call(this);
+
+		this.stampAnnotPreviewManager = new AscPDF.StampAnnotPreviewManager();
+	};
+	PDFEditorApi.prototype.asc_getPropertyEditorStamps = function() {
+		return this.stampAnnotPreviewManager.getStampPreviews();
+	};
 	PDFEditorApi.prototype._coAuthoringInitEnd = function() {
 		AscCommon.DocumentEditorApi.prototype._coAuthoringInitEnd.call(this);
 
@@ -2958,6 +2966,7 @@
 	PDFEditorApi.prototype['asc_GetOpacity']		= PDFEditorApi.prototype.asc_GetOpacity;
 	// stamp
 	PDFEditorApi.prototype['AddStampAnnot']					= PDFEditorApi.prototype.AddStampAnnot;
+	PDFEditorApi.prototype['asc_getPropertyEditorStamps']	= PDFEditorApi.prototype.asc_getPropertyEditorStamps;
 
 	// freetext
 	PDFEditorApi.prototype['AddFreeTextAnnot']	= PDFEditorApi.prototype.AddFreeTextAnnot;
