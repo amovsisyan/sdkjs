@@ -225,6 +225,9 @@ CChartsDrawer.prototype =
 			case AscFormat.SERIES_LAYOUT_PARETO_LINE :
 				this.charts.chartEx = new drawParetoChart(seria, this);
 				break;
+			case AscFormat.SERIES_LAYOUT_BOX_WHISKER :
+				this.charts.chartEx = new drawBoxWhiskerChart(seria, this);
+				break;
 			default :
 				this.charts.chartEx = null;
 		}
@@ -8271,6 +8274,157 @@ drawFunnelChart.prototype = {
 		}
 
 		return {x: centerX, y: centerY};
+	}
+}
+
+/** @constructor */
+function drawBoxWhiskerChart(chart, chartsDrawer) {
+	this.chartProp = chartsDrawer.calcProp;
+	this.cChartDrawer = chartsDrawer;
+	this.cChartSpace = chartsDrawer.cChartSpace;
+
+	this.chart = chart;
+
+	this.catAx = null;
+	this.valAx = null;
+
+	this.ptCount = null;
+	this.seriesCount = null;
+	this.subType = null;
+
+	this.paths = {};
+	this.linePath = null;
+}
+
+drawBoxWhiskerChart.prototype = {
+	constructor: drawBoxWhiskerChart,
+
+	recalculate: function () {
+		const cachedData = this.cChartSpace ? this.cChartSpace.getCachedData() : null;
+		if (!cachedData || !this.cChartSpace.chart.plotArea.axId) {
+			return;
+		}
+
+		if (cachedData.data.length > 0 && this.chartProp && this.chartProp.chartGutter) {
+			const seria = this.cChartSpace.chart.plotArea.plotAreaRegion.series[0];
+			const strLit = seria.getCatLit();
+			const strCache = strLit && strLit.pts;
+			const numLit = seria.getValLit();
+			const catStart = this.chartProp.chartGutter._left;
+
+			const valAxis = this.cChartSpace.chart.plotArea.axId[1];
+			const catAxis = this.cChartSpace.chart.plotArea.axId[0];
+			const arrays = cachedData._constructArrays(strCache, numLit.pts);
+
+			const coeff = catAxis.scaling.gapWidth;
+
+			// 1 px gap for each section length
+			const gapWidth = 0.5 / this.chartProp.pxToMM;
+			const gapNumber = cachedData.data.length;
+
+			//Each bar will have 2 gapWidth and 2 margins , on left and right sides
+			const initialBarWidth = (this.chartProp.trueWidth - (2 * gapWidth * gapNumber)) / cachedData.data.length;
+			const barWidth = (initialBarWidth / (1 + coeff));
+			const margin = (initialBarWidth - barWidth) / 2;
+
+			const tailWidth = barWidth / 3;
+
+			// starting cat point
+			let catPoint = catStart + margin + (barWidth / 2);
+
+			// the gap between two bars
+			const gapBetween = 2 * (margin + gapWidth);
+
+			let index = 0;
+
+			for (let i = 0; i < arrays.length; i++) {
+				for (let j = 0; j < arrays[i].length; j++) {
+					const valPoint = this.cChartDrawer.getYPosition(arrays[i][j], valAxis, true);
+					if (arrays[i][j] === cachedData.data[i].fStart || arrays[i][j] === cachedData.data[i].fEnd) {
+						// point from which to start drawing vertical line to tail
+						const value = arrays[i][j] === cachedData.data[i].fStart ? cachedData.data[i].fFirstQuartile : cachedData.data[i].fThirdQuartile;
+						const valPoint2 = this.cChartDrawer.getYPosition(value, valAxis, true);
+						this.paths[index] = this.createTail(catPoint, valPoint, valPoint2, tailWidth);
+					} else {
+						this.paths[index] = this.createPoint(catPoint, valPoint, 5 * gapWidth);
+					}
+					index += 1;
+				}
+
+				// recalculate bar body
+				const valFirstQuartile = this.cChartDrawer.getYPosition(cachedData.data[i].fFirstQuartile, valAxis, true) * this.chartProp.pxToMM;
+				const valThirdQuartile = this.cChartDrawer.getYPosition(cachedData.data[i].fThirdQuartile, valAxis, true) * this.chartProp.pxToMM;
+				this.paths[index] = this.cChartDrawer._calculateRect(catPoint - (barWidth / 2), valFirstQuartile, barWidth, valFirstQuartile - valThirdQuartile);
+				index += 1;
+				catPoint += (gapBetween + barWidth);
+			}
+			console.log("here");
+		}
+	},
+
+	createTail: function (x, y, y1, size) {
+		const pathId = this.cChartSpace.AllocPath();
+		const path = this.cChartSpace.GetPath(pathId);
+		const pathW = this.chartProp.pathW;
+		const pxToMm = this.chartProp.pxToMM;
+
+		path.moveTo(x * pathW / pxToMm, y1 * pathW);
+		path.lnTo(x * pathW / pxToMm, y * pathW);
+		path.moveTo((x + (size / 2)) * pathW / pxToMm, y * pathW);
+		path.lnTo((x - (size / 2)) * pathW / pxToMm, y * pathW);
+
+
+		return pathId;
+	},
+
+	createPoint: function (x, y, size) {
+		const pathId = this.cChartSpace.AllocPath();
+		const path = this.cChartSpace.GetPath(pathId);
+		const halfSize = size / 2;
+		const pathW = this.chartProp.pathW;
+		const pxToMm = this.chartProp.pxToMM;
+
+
+		path.moveTo(x * pathW / pxToMm, y * pathW);
+		path.moveTo((x + halfSize) * pathW / pxToMm, y * pathW);
+		path.arcTo(halfSize * pathW, halfSize * pathW, 0, Math.PI * 2 * cToDeg);
+
+		return pathId;
+	},
+
+	draw : function () {
+		if (!this.cChartDrawer || !this.cChartDrawer.calcProp || !this.cChartDrawer.cShapeDrawer || !this.cChartDrawer.cShapeDrawer.Graphics || !this.cChartDrawer.calcProp.chartGutter) {
+			return;
+		}
+
+		// find chart starting coordinates, width and height;
+		let leftRect = this.cChartDrawer.calcProp.chartGutter._left / this.cChartDrawer.calcProp.pxToMM;
+		let topRect = (this.cChartDrawer.calcProp.chartGutter._top) / this.cChartDrawer.calcProp.pxToMM;
+		let rightRect = this.cChartDrawer.calcProp.trueWidth / this.cChartDrawer.calcProp.pxToMM;
+		let bottomRect = (this.cChartDrawer.calcProp.trueHeight) / this.cChartDrawer.calcProp.pxToMM;
+
+		if (!AscFormat.isRealNumber(leftRect) || !AscFormat.isRealNumber(topRect) || !AscFormat.isRealNumber(rightRect) || !AscFormat.isRealNumber(bottomRect) ) {
+			return
+		}
+
+		this.cChartDrawer.cShapeDrawer.Graphics.SaveGrState();
+		this.cChartDrawer.cShapeDrawer.Graphics.AddClipRect(leftRect, topRect, rightRect, bottomRect);
+
+		let series = this.cChartSpace.chart.plotArea.plotAreaRegion.series;
+
+		let oSeries = series[0];
+		if(oSeries) {
+			for (let i in this.paths) {
+				if (this.paths.hasOwnProperty(i) && this.paths[i]) {
+					let nPtIdx = parseInt(i);
+					let pen = oSeries.getPtPen(nPtIdx);
+					let brush = oSeries.getPtBrush(nPtIdx);
+					this.cChartDrawer.drawPath(this.paths[i], pen, brush);
+				}
+			}
+		}
+
+		this.cChartDrawer.cShapeDrawer.Graphics.RestoreGrState();
 	}
 }
 
@@ -18992,19 +19146,22 @@ CColorObj.prototype =
 			return;
 		}
 
-		const ptsToArray = function (arr) {
-			const result = [];
-			for (let i = 0; i < arr.length; i++) {
-				result.push(arr[i].val);
-			}
-			return result;
-		}
+		const strCache = strLit && strLit.pts;
 
-		const constructArrays = function (strCache, numArr) {
+		const resultingArr = this._constructArrays(strCache, numLit.pts);
+		for (let i = 0; i < resultingArr.length; i++) {
+			this.data.push(this._createBox(resultingArr[i], axisProperties));
+		}
+		console.log(this.data);
+	}
+
+	CCachedBoxWhisker.prototype._constructArrays = function (strCache, numArr) {
+		const resultingArr = [];
+		if (strCache) {
 			const dictSet = {}
-			const resultingArr = [];
 			let index = 0;
 
+			// return value for specific label
 			const getVal = function (strCacheIdx) {
 				for (; index < numArr.length; index++) {
 					if (numArr[index].idx === strCacheIdx) {
@@ -19012,6 +19169,7 @@ CColorObj.prototype =
 					}
 				}
 			}
+			// create arrays of families of same labels
 			for (let i = 0; i < strCache.length; i++) {
 				const key = strCache[i].val;
 				if (dictSet[key] === undefined) {
@@ -19021,24 +19179,16 @@ CColorObj.prototype =
 					resultingArr[dictSet[key]].push(getVal(strCache[i].idx));
 				}
 			}
-
-			return resultingArr;
-		}
-
-		const strCache = strLit && strLit.pts;
-
-		if (strCache) {
-			// get arrays of values for each string
-			const resultingArr = constructArrays(strCache, numLit.pts);
-			for (let i = 0; i < resultingArr.length; i++) {
-				this.data.push(this._createBox(resultingArr[i], axisProperties));
-			}
 		} else {
-			// if there is no string cache, then create one
-			// {start, first_quartile, median, second_quartile, end}
-			this.data.push(this._createBox(ptsToArray(numLit.pts), axisProperties));
+			// construct single array of values
+			const result = [];
+			for (let i = 0; i < numArr.length; i++) {
+				result.push(numArr[i].val);
+			}
+
+			resultingArr.push(result);
 		}
-		console.log(this.data)
+		return resultingArr;
 	}
 
 	CCachedBoxWhisker.prototype._createBox = function (arr, axisProperties) {
@@ -19083,22 +19233,22 @@ CColorObj.prototype =
 		const fFirstQuartileVal = fFirstQuartile && fFirstQuartile.getValue() !== '#NUM!' ? fFirstQuartile.getValue() : null;
 
 		// Get the second quartile using the appropriate method based on `exclusive`
-		const fSecondQuartile = this.exclusive
+		const fThirdQuartile = this.exclusive
 			? AscCommonExcel.getPercentileExclusive(arr, 0.75, true)
 			: AscCommonExcel.getPercentile(arr, 0.75, true);
 
 		// Get the value of the second quartile, convert "#!Num" to null
-		const fSecondQuartileVal = fSecondQuartile && fSecondQuartile.getValue() !== '#NUM!' ? fSecondQuartile.getValue() : null;
+		const fThirdQuartileVal = fThirdQuartile && fThirdQuartile.getValue() !== '#NUM!' ? fThirdQuartile.getValue() : null;
 
 		// Calculate the interquartile range (IQR), ensuring null values are handled
-		const fIQR = (fSecondQuartileVal !== null && fFirstQuartileVal !== null)
-			? fSecondQuartileVal - fFirstQuartileVal
+		const fIQR = (fThirdQuartileVal !== null && fFirstQuartileVal !== null)
+			? fThirdQuartileVal - fFirstQuartileVal
 			: null;
 
 		// this multiplier is used insede the formula to detect outliers
 		const fMulitplier = 1.5;
 		const fLowerThreshold = fFirstQuartileVal - (fMulitplier * fIQR);
-		const fUpperThreshold = fSecondQuartileVal + (fMulitplier * fIQR);
+		const fUpperThreshold = fThirdQuartileVal + (fMulitplier * fIQR);
 
 		// dont return lowest and highest if arr length is less than 3
 		const fLowestNum = arr.length > 3 ? getLowest(arr, fLowerThreshold) : null;
@@ -19109,10 +19259,10 @@ CColorObj.prototype =
 		this._chartExSetAxisMinAndMax(axisProperties.val, fFirstQuartileVal);
 		this._chartExSetAxisMinAndMax(axisProperties.val, fMedian.getValue());
 		this._chartExSetAxisMinAndMax(axisProperties.val, fMean);
-		this._chartExSetAxisMinAndMax(axisProperties.val, fSecondQuartileVal);
+		this._chartExSetAxisMinAndMax(axisProperties.val, fThirdQuartileVal);
 		this._chartExSetAxisMinAndMax(axisProperties.val, fHighestNum);
 
-		return {fStart: fLowestNum, fFirstQuartile: fFirstQuartileVal, fMedian: fMedian.getValue(), fMean: fMean,  fSecondQuartile: fSecondQuartileVal, fEnd: fHighestNum}
+		return {fStart: fLowestNum, fFirstQuartile: fFirstQuartileVal, fMedian: fMedian.getValue(), fMean: fMean,  fThirdQuartile: fThirdQuartileVal, fEnd: fHighestNum}
 	}
 
 

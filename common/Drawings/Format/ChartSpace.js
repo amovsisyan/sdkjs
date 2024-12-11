@@ -5053,7 +5053,7 @@ function(window, undefined) {
 								}
 							}
 						}
-					} else if (strCache && (type === AscFormat.SERIES_LAYOUT_WATERFALL || type === AscFormat.SERIES_LAYOUT_BOX_WHISKER)) {
+					} else if (strCache && type === AscFormat.SERIES_LAYOUT_WATERFALL) {
 						let j = 0;
 						for ( let i = 0; i < cachedData.data.length; i++) {
 							if (j < strCache.pts.length && strCache.pts[j].idx === i) {
@@ -5073,7 +5073,15 @@ function(window, undefined) {
 								aStrings.push('');
 							}
 						}
-					} else if (type === AscFormat.SERIES_LAYOUT_FUNNEL || type === AscFormat.SERIES_LAYOUT_WATERFALL) {
+					} else if (strCache && type === AscFormat.SERIES_LAYOUT_BOX_WHISKER) {
+						const dictSet = {};
+						for (let i = 0; i < strCache.pts.length; i++) {
+							if (!dictSet[strCache.pts[i].val]) {
+								aStrings.push(strCache.pts[i].val);
+								dictSet[strCache.pts[i].val] = true;
+							}
+						}
+					} else if (type === AscFormat.SERIES_LAYOUT_FUNNEL || type === AscFormat.SERIES_LAYOUT_WATERFALL || type === AscFormat.SERIES_LAYOUT_BOX_WHISKER) {
 						aStrings = this.getValLabels(oAxis);
 					}
 				}
@@ -9005,7 +9013,7 @@ function(window, undefined) {
 
 		// TODO after new succefull implementation of new type remove option here
 		const type = this.chart && this.chart.plotArea && this.chart.plotArea.plotAreaRegion && this.chart.plotArea.plotAreaRegion.series && this.chart.plotArea.plotAreaRegion.series[0] ? this.chart.plotArea.plotAreaRegion.series[0].layoutId : null;
-		if (isChartEx && !type && (type === AscFormat.SERIES_LAYOUT_BOX_WHISKER || type === AscFormat.SERIES_LAYOUT_PARETO_LINE || type === AscFormat.SERIES_LAYOUT_REGION_MAP || type === AscFormat.SERIES_LAYOUT_SUNBURST || type === AscFormat.SERIES_LAYOUT_TREEMAP)) {
+		if (isChartEx && !type && (type === AscFormat.SERIES_LAYOUT_REGION_MAP || type === AscFormat.SERIES_LAYOUT_SUNBURST || type === AscFormat.SERIES_LAYOUT_TREEMAP)) {
 			return ;
 		}
 		//----------------------------------
