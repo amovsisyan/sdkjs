@@ -8072,13 +8072,6 @@ function parserFormula( formula, parent, _ws ) {
 
 				// This check of short links is performed only when opening/reading, manual input is processed differently
 				if (receivedFormula && !local) {
-					// if (local) {
-					// 	parseResult.setError(c_oAscError.ID.FrmlWrongReferences);
-					// 	if (!ignoreErrors) {
-					// 		t.outStack = [];
-					// 		return false;
-					// 	}
-					// }
 					let eReference = local ? t.wb.getExternalLinkByName(externalLink) : t.wb.getExternalLinkByIndex(externalLink - 1);
 					if (eReference && eReference.DefinedNames) {
 						for (let i = 0; i < eReference.DefinedNames.length; i++) {
@@ -8101,14 +8094,6 @@ function parserFormula( formula, parent, _ws ) {
 							}
 						}
 					}
-
-					// if (!externalSheetName && local) {
-					// 	parseResult.setError(c_oAscError.ID.FrmlWrongReferences);
-					// 	if (!ignoreErrors) {
-					// 		t.outStack = [];
-					// 		return false;
-					// 	}
-					// }
 				}
 
 				//renameSheetMap
