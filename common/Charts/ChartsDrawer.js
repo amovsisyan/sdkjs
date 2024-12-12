@@ -7860,14 +7860,6 @@ drawParetoChart.prototype.draw = function () {
 };
 
 drawParetoChart.prototype.drawParetoLine = function () {
-	console.log(AscCommonExcel.getPercentileExclusive([31, 115, 116, 119], 0.25 * 1))
-	console.log(AscCommonExcel.getPercentileExclusive([31, 115, 116, 119], 0.25 * 2))
-	console.log(AscCommonExcel.getPercentileExclusive([31, 115, 116, 119], 0.25 * 3))
-
-	console.log(AscCommonExcel.getPercentile([31, 115, 116, 119], 0.25 * 1))
-	console.log(AscCommonExcel.getPercentile([31, 115, 116, 119], 0.25 * 2))
-	console.log(AscCommonExcel.getPercentile([31, 115, 116, 119], 0.25 * 3))
-
 	if (!this.linePath) {
 		return;
 	}
@@ -8344,34 +8336,68 @@ drawBoxWhiskerChart.prototype = {
 						// point from which to start drawing vertical line to tail
 						const value = arrays[i][j] === cachedData.data[i].fStart ? cachedData.data[i].fFirstQuartile : cachedData.data[i].fThirdQuartile;
 						const valPoint2 = this.cChartDrawer.getYPosition(value, valAxis, true);
-						this.paths[index] = this.createTail(catPoint, valPoint, valPoint2, tailWidth);
+						this.paths[index] = [this.createTail(catPoint, valPoint, valPoint2, tailWidth), true];
 					} else {
-						this.paths[index] = this.createPoint(catPoint, valPoint, 5 * gapWidth);
+						// obtain condition to draw, either outlier or nonoutlier
+						const isDraw = arrays[i][j] < cachedData.data[i].fStart || arrays[i][j] > cachedData.data[i].fEnd ? cachedData.outliers : cachedData.nonoutliers;
+						if (isDraw) {
+							this.paths[index] = [this.createPoint(catPoint, valPoint, 5 * gapWidth), false];
+						}
 					}
 					index += 1;
 				}
 
 				// recalculate bar body
 				const valFirstQuartile = this.cChartDrawer.getYPosition(cachedData.data[i].fFirstQuartile, valAxis, true) * this.chartProp.pxToMM;
+				const valMedian = this.cChartDrawer.getYPosition(cachedData.data[i].fMedian, valAxis, true) * this.chartProp.pxToMM;
 				const valThirdQuartile = this.cChartDrawer.getYPosition(cachedData.data[i].fThirdQuartile, valAxis, true) * this.chartProp.pxToMM;
-				this.paths[index] = this.cChartDrawer._calculateRect(catPoint - (barWidth / 2), valFirstQuartile, barWidth, valFirstQuartile - valThirdQuartile);
+
+				// draw bottom part of the bar
+				this.paths[index] = [this.cChartDrawer._calculateRect(catPoint - (barWidth / 2), valFirstQuartile, barWidth, valFirstQuartile - valMedian), true];
 				index += 1;
+
+				// draw median part of the bar
+				this.paths[index] = [this._createLine([[catPoint - (barWidth / 2), valMedian], [catPoint + (barWidth / 2), valMedian]]), false];
+				index += 1;
+
+				// draw top part of the bar
+				this.paths[index] = [this.cChartDrawer._calculateRect(catPoint - (barWidth / 2), valMedian, barWidth, valMedian - valThirdQuartile), true];
+				index += 1;
+
 				catPoint += (gapBetween + barWidth);
 			}
 			console.log("here");
 		}
 	},
 
+	_createLine: function (arr) {
+		const pathId = this.cChartSpace.AllocPath();
+		const path = this.cChartSpace.GetPath(pathId);
+		const pathW = this.chartProp.pathW;
+		const pathH = this.chartProp.pathH;
+		const pxToMm = this.chartProp.pxToMM;
+
+		if (0 < arr.length) {
+			path.moveTo(arr[0][0] * pathW / pxToMm, arr[0][1] * pathH / pxToMm);
+		}
+		for (let i = 1; i < arr.length; i++) {
+			path.lnTo(arr[i][0] * pathW / pxToMm, arr[i][1] * pathH / pxToMm);
+		}
+
+		return pathId;
+	},
+
 	createTail: function (x, y, y1, size) {
 		const pathId = this.cChartSpace.AllocPath();
 		const path = this.cChartSpace.GetPath(pathId);
 		const pathW = this.chartProp.pathW;
+		const pathH = this.chartProp.pathH;
 		const pxToMm = this.chartProp.pxToMM;
 
-		path.moveTo(x * pathW / pxToMm, y1 * pathW);
-		path.lnTo(x * pathW / pxToMm, y * pathW);
-		path.moveTo((x + (size / 2)) * pathW / pxToMm, y * pathW);
-		path.lnTo((x - (size / 2)) * pathW / pxToMm, y * pathW);
+		path.moveTo(x * pathW / pxToMm, y1 * pathH);
+		path.lnTo(x * pathW / pxToMm, y * pathH);
+		path.moveTo((x + (size / 2)) * pathW / pxToMm, y * pathH);
+		path.lnTo((x - (size / 2)) * pathW / pxToMm, y * pathH);
 
 
 		return pathId;
@@ -8382,11 +8408,12 @@ drawBoxWhiskerChart.prototype = {
 		const path = this.cChartSpace.GetPath(pathId);
 		const halfSize = size / 2;
 		const pathW = this.chartProp.pathW;
+		const pathH = this.chartProp.pathH;
 		const pxToMm = this.chartProp.pxToMM;
 
 
-		path.moveTo(x * pathW / pxToMm, y * pathW);
-		path.moveTo((x + halfSize) * pathW / pxToMm, y * pathW);
+		path.moveTo(x * pathW / pxToMm, y * pathH);
+		path.moveTo((x + halfSize) * pathW / pxToMm, y * pathH);
 		path.arcTo(halfSize * pathW, halfSize * pathW, 0, Math.PI * 2 * cToDeg);
 
 		return pathId;
@@ -8413,18 +8440,29 @@ drawBoxWhiskerChart.prototype = {
 		let series = this.cChartSpace.chart.plotArea.plotAreaRegion.series;
 
 		let oSeries = series[0];
+
 		if(oSeries) {
-			for (let i in this.paths) {
-				if (this.paths.hasOwnProperty(i) && this.paths[i]) {
-					let nPtIdx = parseInt(i);
-					let pen = oSeries.getPtPen(nPtIdx);
-					let brush = oSeries.getPtBrush(nPtIdx);
-					this.cChartDrawer.drawPath(this.paths[i], pen, brush);
-				}
-			}
+			this.drawParts(oSeries, true);
+			this.drawParts(oSeries, false);
 		}
 
 		this.cChartDrawer.cShapeDrawer.Graphics.RestoreGrState();
+	},
+
+	drawParts : function (oSeries, order) {
+		for (let i in this.paths) {
+			if (this.paths.hasOwnProperty(i) && this.paths[i] && this.paths[i][1] === order) {
+				let nPtIdx = parseInt(i);
+				let pen = oSeries.getPtPen(nPtIdx);
+				if (pen) {
+					pen.Fill.fill.color.RGBA.R = 255;
+					pen.Fill.fill.color.RGBA.B = 0;
+					pen.Fill.fill.color.RGBA.G = 0;
+				}
+				let brush = oSeries.getPtBrush(nPtIdx);
+				this.cChartDrawer.drawPath(this.paths[i][0], pen, brush);
+			}
+		}
 	}
 }
 
@@ -19134,8 +19172,11 @@ CColorObj.prototype =
 
 	function CCachedBoxWhisker(type, seria, numLit, strLit, axisProperties) {
 		CCachedChartExData.call(this, type, []);
-		this.exclusive = true;
-		this.mean = false;
+		this.exclusive = seria && seria.layoutPr && seria.layoutPr.statistics ? seria.layoutPr.statistics.quartileMethod : AscFormat.QUARTILE_METHOD_EXCLUSIVE;
+		this.outliers = seria && seria.layoutPr && seria.layoutPr.visibility ? seria.layoutPr.visibility.outliers : false;
+		this.nonoutliers = seria && seria.layoutPr && seria.layoutPr.visibility ? seria.layoutPr.visibility.nonoutliers : false;
+		this.meanLine = seria && seria.layoutPr && seria.layoutPr.visibility ? seria.layoutPr.visibility.meanLine : false;
+		this.meanMarker = seria && seria.layoutPr && seria.layoutPr.visibility ? seria.layoutPr.visibility.meanMarker : false;
 		this._calculate(seria, numLit, strLit, axisProperties);
 	}
 
