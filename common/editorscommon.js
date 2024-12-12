@@ -2911,9 +2911,6 @@
 		rx_ref3D_quoted       = new XRegExp("^'(?<name_from>(?:''|[^\\[\\]'\\/*?:])*)(?::(?<name_to>(?:''|[^\\[\\]'\\/*?:])*))?'!"),
 		rx_ref3D_non_quoted_2 = new XRegExp("^(?<name_from>[" + str_namedRanges + "\\d][" + str_namedRanges + "\\d.]*)(:(?<name_to>[" + str_namedRanges + "\\d][" + str_namedRanges + "\\d.]*))?!", "i"),
 		rx_ref3D              = new XRegExp("^(?<name_from>[^:]+)(:(?<name_to>[^:]+))?!"),
-		// TODO rework by cycle
-		rx_ref3D_short        = /^\!{1}([^\s\\]+)/i,	// short links that ms writes as [externalLink] + "!" + "Defname"
-		rx_ref3D_short_local  = /^([^'\[\]]+)!\s*(.+)$/i,	// short links that user writes as "'externalLinkWithoutBrackets'" + "!" + "Defname" - "'DefTest.xlsx'!_s1"
 		rx_ref_external       = /^(\[{1}(\d*)\]{1})/,
 		rx_ref_external2      = /^(\[{1}(\d*)\]{1})/,
 		rx_number             = /^ *[+-]?\d*(\d|\.)\d*([eE][+-]?\d+)?/,
@@ -3013,6 +3010,48 @@
 		}
 
 		return null;
+	}
+
+	function isExternalShortLink (string) {
+		// short links that ms writes as [externalLink] + "!" + "Defname"
+		// strings come in "!"+"Defname" format
+		if (string[0] !== "!") {
+			return null;
+		}
+		// we go through the characters after the first
+		for (let i = 1; i < string.length; i++) {
+			let char = string[i];
+	
+			// if the character is a space or backslash, return null
+			if (char === ' ' || char === '\\' || char === "!") {
+				return null;
+			}
+		}
+		return ["!" + string, string];
+	}
+
+	function isExternalShortLinkLocal (string) {
+		// short links that user writes as "'externalLinkWithoutBrackets'" + "!" + "Defname" - "'DefTest.xlsx'!_s1"
+		// we split the string into two parts, where the separator is an exclamation point
+		if (!string) {
+			return null;
+		}
+		
+		let stringArray = string.split("!");
+		if (!stringArray || !stringArray[0] || !stringArray[1] || 
+			stringArray[0].includes("!") || stringArray[0].includes("[") || stringArray[0].includes("]") || 
+			stringArray[1].includes("!") || stringArray[1].includes("[") || stringArray[1].includes("]")) {
+				return null;
+		}
+
+		// check if the second part can be defname - parserHelp.isName()
+		let ph = {operand_str: stringArray[1], pCurrPos: 0};
+		let canBeDefName = parserHelp.isName.call(ph, stringArray[1], ph.pCurrPos);
+		if (!canBeDefName) {
+			return null;
+		}
+
+		return ["!" + stringArray[1], stringArray[1]];
 	}
 
 	function isValidFileUrl(url) {
@@ -3450,8 +3489,9 @@
 			}
 		}
 
-		let canBeShortLink = XRegExp.exec(subSTR, rx_ref3D_short) || XRegExp.exec(subSTR, rx_ref3D_short_local);
-		let match = XRegExp.exec(subSTR, rx_ref3D_quoted) || XRegExp.exec(subSTR, rx_ref3D_non_quoted) || canBeShortLink;
+		let shortLink = isExternalShortLink(subSTR) || isExternalShortLinkLocal(subSTR);
+		let match = XRegExp.exec(subSTR, rx_ref3D_quoted) || XRegExp.exec(subSTR, rx_ref3D_non_quoted);
+		
 		if(!match && support_digital_start) {
 			match = XRegExp.exec(subSTR, rx_ref3D_non_quoted_2);
 		}
@@ -3461,11 +3501,11 @@
 			this.pCurrPos += match[0].length + externalLength;
 			this.operand_str = match[1];
 
-			if (!match["name_from"] && !match["name_to"] && canBeShortLink) {
-				return [true, null, null, external, subSTR];
-			}
-
-			return [true, match["name_from"] ? match["name_from"].replace(/''/g, "'") : null, match["name_to"] ? match["name_to"].replace(/''/g, "'") : null, external, canBeShortLink ? subSTR : null];
+			return [true, match["name_from"] ? match["name_from"].replace(/''/g, "'") : null, match["name_to"] ? match["name_to"].replace(/''/g, "'") : null, external, shortLink ? subSTR : null];
+		} else if (shortLink) {
+			this.pCurrPos += shortLink[0].length + externalLength;
+			this.operand_str = shortLink[1];
+			return [true, null, null, external, subSTR];
 		}
 		return [false, null, null, external, externalLength];
 	};
