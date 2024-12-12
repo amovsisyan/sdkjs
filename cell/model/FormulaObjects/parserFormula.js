@@ -8058,19 +8058,28 @@ function parserFormula( formula, parent, _ws ) {
 
 				t.is3D = true;
 
-				let externalLink = _3DRefTmp[3], receivedDefName = _3DRefTmp[5];
-				let externalDefName, externalSheetName;
+				let externalLink = _3DRefTmp[3];
+				let externalDefName, externalSheetName, receivedDefName, receivedLink;
 
-				if (receivedDefName) {
-					if (local) {
-						parseResult.setError(c_oAscError.ID.FrmlWrongReferences);
-						if (!ignoreErrors) {
-							t.outStack = [];
-							return false;
-						}
-					}
-					
-					let eReference = t.wb.getExternalLinkByIndex(externalLink - 1);
+				// this formula is checked for a short link - the line is split into two parts
+				let receivedFormula = _3DRefTmp[4];
+				if (receivedFormula) {
+					receivedFormula = receivedFormula.split("!");
+					// the link can be either to another sheet or to another book - they have the same entry
+					receivedLink = receivedFormula[0];
+					receivedDefName = receivedFormula[1];
+				}
+
+				// This check of short links is performed only when opening/reading, manual input is processed differently
+				if (receivedFormula && !local) {
+					// if (local) {
+					// 	parseResult.setError(c_oAscError.ID.FrmlWrongReferences);
+					// 	if (!ignoreErrors) {
+					// 		t.outStack = [];
+					// 		return false;
+					// 	}
+					// }
+					let eReference = local ? t.wb.getExternalLinkByName(externalLink) : t.wb.getExternalLinkByIndex(externalLink - 1);
 					if (eReference && eReference.DefinedNames) {
 						for (let i = 0; i < eReference.DefinedNames.length; i++) {
 							if (eReference.DefinedNames[i].Name === receivedDefName) {
@@ -8081,7 +8090,7 @@ function parserFormula( formula, parent, _ws ) {
 									// parse string
 									let refString = externalDefName.RefersTo,
 										// regex to find a sheet name enclosed in single quotes
-										reg = /'(?<sheetname>[\S]+)'/gi,
+										reg = /'([\S]+)'/gi,
 										regMatch = reg.exec(refString);
 
 									if (regMatch && regMatch[1]) {
@@ -8092,6 +8101,14 @@ function parserFormula( formula, parent, _ws ) {
 							}
 						}
 					}
+
+					// if (!externalSheetName && local) {
+					// 	parseResult.setError(c_oAscError.ID.FrmlWrongReferences);
+					// 	if (!ignoreErrors) {
+					// 		t.outStack = [];
+					// 		return false;
+					// 	}
+					// }
 				}
 
 				//renameSheetMap
@@ -8117,11 +8134,56 @@ function parserFormula( formula, parent, _ws ) {
 				}
 
 				let isExternalRefExist;
+				let externalName = _3DRefTmp[3];
 				//check on add to this document
 				let thisTitle = externalLink && window["Asc"]["editor"] && window["Asc"]["editor"].DocInfo && window["Asc"]["editor"].DocInfo.get_Title();
 				if (thisTitle === externalLink) {
 					externalLink = null;
 				}
+					
+				// we check whether sheetName is part of the document or is it a short link to external data
+				if (local && !externalLink && receivedFormula) {
+					// если существует лист с таким же названием, ссылаемся на него, иначе создаем внешнюю ссылку(сокращенную)
+					let innerSheet = t.wb.getWorksheetByName(sheetName);
+					if (!innerSheet) {
+						let eReference = t.wb.getExternalLinkByName(sheetName);
+						if (eReference && eReference.DefinedNames) {
+							for (let i = 0; i < eReference.DefinedNames.length; i++) {
+								if (eReference.DefinedNames[i].Name === receivedDefName) {
+									externalDefName = eReference.DefinedNames[i];
+									if (externalDefName.SheetId !== null) {
+										externalSheetName = eReference.SheetNames[eReference.DefinedNames[i].SheetId];
+									} else if (!externalDefName.SheetId && externalDefName.RefersTo) {
+										// parse string
+										let refString = externalDefName.RefersTo,
+											// regex to find a sheet name enclosed in single quotes
+											reg = /'([\S]+)'/gi,
+											regMatch = reg.exec(refString);
+	
+										if (regMatch && regMatch[1]) {
+											externalSheetName = regMatch[1];
+										}
+									}
+									break;
+								}
+							}
+						}
+
+						if (!externalSheetName) {
+							// err
+							parseResult.setError(c_oAscError.ID.FrmlWrongReferences);
+							if (!ignoreErrors) {
+								t.outStack = [];
+								return false;
+							}
+						} else {
+							sheetName = externalSheetName;
+							externalName = receivedLink;
+							externalLink = receivedLink;
+						}
+					}
+				}
+				
 				if (externalLink) {
 					if (local) {
 						externalLink = t.wb.getExternalLinkIndexByName(externalLink);
@@ -8136,7 +8198,6 @@ function parserFormula( formula, parent, _ws ) {
 							parseResult.externalReferenesNeedAdd[externalLink].push({sheet: sheetName /*_3DRefTmp[1]*/});
 						} else {
 							isExternalRefExist = true;
-							let externalName = _3DRefTmp[3];
 							if (!parseResult.externalReferenesNeedAdd) {
 								parseResult.externalReferenesNeedAdd = [];
 							}
