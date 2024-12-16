@@ -8329,6 +8329,7 @@ drawBoxWhiskerChart.prototype = {
 
 			let index = 0;
 
+			const meanLine = [];
 			for (let i = 0; i < arrays.length; i++) {
 				for (let j = 0; j < arrays[i].length; j++) {
 					const valPoint = this.cChartDrawer.getYPosition(arrays[i][j], valAxis, true);
@@ -8341,7 +8342,7 @@ drawBoxWhiskerChart.prototype = {
 						// obtain condition to draw, either outlier or nonoutlier
 						const isDraw = arrays[i][j] < cachedData.data[i].fStart || arrays[i][j] > cachedData.data[i].fEnd ? cachedData.outliers : cachedData.nonoutliers;
 						if (isDraw) {
-							this.paths[index] = [this.createPoint(catPoint, valPoint, 5 * gapWidth), false];
+							this.paths[index] = [this.createPoint(catPoint, valPoint, 18 * gapWidth), false];
 						}
 					}
 					index += 1;
@@ -8351,23 +8352,50 @@ drawBoxWhiskerChart.prototype = {
 				const valFirstQuartile = this.cChartDrawer.getYPosition(cachedData.data[i].fFirstQuartile, valAxis, true) * this.chartProp.pxToMM;
 				const valMedian = this.cChartDrawer.getYPosition(cachedData.data[i].fMedian, valAxis, true) * this.chartProp.pxToMM;
 				const valThirdQuartile = this.cChartDrawer.getYPosition(cachedData.data[i].fThirdQuartile, valAxis, true) * this.chartProp.pxToMM;
+				const valMean = this.cChartDrawer.getYPosition(cachedData.data[i].fMean, valAxis, true) * this.chartProp.pxToMM;
 
 				// draw bottom part of the bar
 				this.paths[index] = [this.cChartDrawer._calculateRect(catPoint - (barWidth / 2), valFirstQuartile, barWidth, valFirstQuartile - valMedian), true];
 				index += 1;
 
 				// draw median part of the bar
-				this.paths[index] = [this._createLine([[catPoint - (barWidth / 2), valMedian], [catPoint + (barWidth / 2), valMedian]]), false];
+				this.paths[index] = [this._createLine([[catPoint - (barWidth / 2), valMedian], [catPoint + (barWidth / 2), valMedian]]), true];
 				index += 1;
 
 				// draw top part of the bar
 				this.paths[index] = [this.cChartDrawer._calculateRect(catPoint - (barWidth / 2), valMedian, barWidth, valMedian - valThirdQuartile), true];
 				index += 1;
 
+				// draw mean point
+				if (cachedData.meanMarker) {
+					meanLine.push([catPoint, valMean]);
+					this.paths[index] = [this._createMeanMarker(catPoint, valMean, 32 * gapWidth), false];
+				}
+				index += 1;
+
 				catPoint += (gapBetween + barWidth);
+			}
+
+			if (cachedData.meanLine) {
+				this.linePath = this._createLine(meanLine);
 			}
 			console.log("here");
 		}
+	},
+
+	_createMeanMarker: function (x, y, halfSize) {
+		const pathId = this.cChartSpace.AllocPath();
+		const path = this.cChartSpace.GetPath(pathId);
+		const pathW = this.chartProp.pathW;
+		const pathH = this.chartProp.pathH;
+		const pxToMm = this.chartProp.pxToMM;
+
+		path.moveTo((x - halfSize) * pathW / pxToMm, (y - halfSize) * pathH / pxToMm );
+		path.lnTo((x + halfSize) * pathW / pxToMm, (y + halfSize) * pathH / pxToMm );
+		path.moveTo((x - halfSize) * pathW / pxToMm, (y + halfSize) * pathH / pxToMm );
+		path.lnTo((x + halfSize) * pathW / pxToMm, (y - halfSize) * pathH / pxToMm );
+
+		return pathId;
 	},
 
 	_createLine: function (arr) {
@@ -8403,18 +8431,15 @@ drawBoxWhiskerChart.prototype = {
 		return pathId;
 	},
 
-	createPoint: function (x, y, size) {
+	createPoint: function (x, y, halfSize) {
 		const pathId = this.cChartSpace.AllocPath();
 		const path = this.cChartSpace.GetPath(pathId);
-		const halfSize = size / 2;
 		const pathW = this.chartProp.pathW;
 		const pathH = this.chartProp.pathH;
 		const pxToMm = this.chartProp.pxToMM;
 
-
-		path.moveTo(x * pathW / pxToMm, y * pathH);
 		path.moveTo((x + halfSize) * pathW / pxToMm, y * pathH);
-		path.arcTo(halfSize * pathW, halfSize * pathW, 0, Math.PI * 2 * cToDeg);
+		path.arcTo(halfSize * pathW / pxToMm, halfSize * pathW / pxToMm, 0, Math.PI * 2 * cToDeg);
 
 		return pathId;
 	},
@@ -8441,25 +8466,27 @@ drawBoxWhiskerChart.prototype = {
 
 		let oSeries = series[0];
 
+		let pen = oSeries.compiledSeriesPen;
+		if (pen) {
+			pen.Fill.fill.color.RGBA.R = 255;
+			pen.Fill.fill.color.RGBA.B = 0;
+			pen.Fill.fill.color.RGBA.G = 0;
+		}
+		let brush = oSeries.compiledSeriesBrush;
+
 		if(oSeries) {
-			this.drawParts(oSeries, true);
-			this.drawParts(oSeries, false);
+			this.drawParts(true, pen, brush);
+			this.drawParts(false, pen, brush);
 		}
 
+		// drawLine
+		this.cChartDrawer.drawPath(this.linePath, pen);
 		this.cChartDrawer.cShapeDrawer.Graphics.RestoreGrState();
 	},
 
-	drawParts : function (oSeries, order) {
+	drawParts : function (order, pen, brush) {
 		for (let i in this.paths) {
 			if (this.paths.hasOwnProperty(i) && this.paths[i] && this.paths[i][1] === order) {
-				let nPtIdx = parseInt(i);
-				let pen = oSeries.getPtPen(nPtIdx);
-				if (pen) {
-					pen.Fill.fill.color.RGBA.R = 255;
-					pen.Fill.fill.color.RGBA.B = 0;
-					pen.Fill.fill.color.RGBA.G = 0;
-				}
-				let brush = oSeries.getPtBrush(nPtIdx);
 				this.cChartDrawer.drawPath(this.paths[i][0], pen, brush);
 			}
 		}
@@ -19257,11 +19284,14 @@ CColorObj.prototype =
 		}
 
 		const getMean = function (arr) {
+			if (!arr.length) {
+				return 0;
+			}
 			let sum = 0;
 			for (let i = 0; i < arr.length; i++) {
 				sum += arr[i];
 			}
-			return sum;
+			return sum / arr.length;
 		}
 		const fMedian = AscCommonExcel.getMedian(arr);
 
@@ -19292,9 +19322,9 @@ CColorObj.prototype =
 		const fUpperThreshold = fThirdQuartileVal + (fMulitplier * fIQR);
 
 		// dont return lowest and highest if arr length is less than 3
-		const fLowestNum = arr.length > 3 ? getLowest(arr, fLowerThreshold) : null;
-		const fHighestNum = arr.length > 3 ? getHighest(arr, fUpperThreshold) : null;
-		const fMean = this.mean ? getMean(arr) : null;
+		const fLowestNum = getLowest(arr, fLowerThreshold);
+		const fHighestNum = arr.length > 1 ? getHighest(arr, fUpperThreshold) : null;
+		const fMean = this.meanMarker ? getMean(arr) : null;
 
 		this._chartExSetAxisMinAndMax(axisProperties.val, fLowestNum);
 		this._chartExSetAxisMinAndMax(axisProperties.val, fFirstQuartileVal);
