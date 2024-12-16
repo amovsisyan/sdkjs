@@ -60,6 +60,14 @@
 			const sToken = oData['token'];
 			const sKey = oData['key'];
 
+			//check updated file on server. compare keys. if file not updated - check only collaborative editing
+			let curEr = oThis.externalReferences[i].externalReference;
+			let curErKey = curEr.getKey();
+			oData.notChangedFile = sKey === curEr.getKey();
+			if (curErKey == null) {
+				curEr.setKey(sKey);
+			}
+
 			if (!sKey) {
 				//if don't have key, then don't have force save
 				isForceSavePossible = false;
@@ -84,6 +92,7 @@
 						arrData[i]["url"] = oResult["url"];
 						arrData[i]["fileType"] = "xlsx";
 						arrData[i]["token"] = null;
+						arrData[i].notChangedFile = false;
 					}
 					fResolve();
 				});
@@ -107,6 +116,7 @@
 				const oPromiseGetter = new CExternalDataPromiseGetter(this.api, this.getExternalReference(i), arrData[i]);
 				arrFPromiseGetters.push(oPromiseGetter.getPromise.bind(oPromiseGetter));
 			}
+			console.log(arrData[i].notChangedFile);
 		}
 		this.doUpdate(arrFPromiseGetters);
 	};

@@ -6088,6 +6088,8 @@ var editor;
      return;
     }
 
+	  this.asc_setUpdateLinks(true)
+
   	let ws = this.wb.getWorksheet();
     if (ws.objectRender.selectedGraphicObjectsExists() && ws.objectRender.controller.setCellBold) {
       ws.objectRender.controller.setCellBold(isBold);
