@@ -4282,7 +4282,7 @@ var CPresentation = CPresentation || function(){};
             return null;
         }
 
-        oShape = oJsonReader.ShapeFromJSON(AscPDF.STAMPS_JSON[sType]);
+        let oShape = oJsonReader.ShapeFromJSON(AscPDF.STAMPS_JSON[sType]);
 
         let oContent = oShape.getDocContent();
         let sUserName = Asc.editor.User.asc_getUserName();
