@@ -5554,7 +5554,7 @@
 								wb.dependencyFormulas.initOpen();
 								AscCommonExcel.g_DefNameWorksheet = RealDefNameWorksheet;
 								if (wb.aWorksheets) {
-									eR && eR.updateData(wb.aWorksheets, _arrAfterPromise[i].data);
+									eR && eR.updateData(wb.aWorksheets, _arrAfterPromise[i].data, null, t.model);
 								}
 							}
 
@@ -5565,7 +5565,7 @@
 							}
 							let updatedData = window["Asc"]["editor"].openDocumentFromZip2(wb ? wb : t.model, stream);
 							if (updatedData) {
-								eR && eR.updateData(updatedData, _arrAfterPromise[i].data);
+								eR && eR.updateData(updatedData, _arrAfterPromise[i].data, null, t.model /* working file workbook */);
 							}
 						}
 					} else if (eR) {	 

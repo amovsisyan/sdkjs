@@ -3027,7 +3027,7 @@
 				return null;
 			}
 		}
-		return ["!" + string, string];
+		return [string, string.slice(1)];
 	}
 
 	function isExternalShortLinkLocal (string) {
@@ -3037,21 +3037,38 @@
 			return null;
 		}
 		
-		let stringArray = string.split("!");
-		if (!stringArray || !stringArray[0] || !stringArray[1] || 
-			stringArray[0].includes("!") || stringArray[0].includes("[") || stringArray[0].includes("]") || 
-			stringArray[1].includes("!") || stringArray[1].includes("[") || stringArray[1].includes("]")) {
-				return null;
+		// let stringArray = string.split("!");
+		let reg = /["',\/\[\]\$\%\^\&\*\(\)\{\}\!\=\+\-\:\#\@\~\`]/;	// reg contains special characters that are not allowed in the string
+		let exclamationMarkIndex = string.indexOf("!");
+
+		let externalLink = exclamationMarkIndex !== -1 ? string.substring(0, string.indexOf("!")) : null;
+		let defname = exclamationMarkIndex !== -1 ? string.substring(string.indexOf("!") + 1) : null;
+
+		if (!externalLink || !defname || reg.test(externalLink) || reg.test(defname)) {
+			return null;
 		}
 
 		// check if the second part can be defname - parserHelp.isName()
-		let ph = {operand_str: stringArray[1], pCurrPos: 0};
-		let canBeDefName = parserHelp.isName.call(ph, stringArray[1], ph.pCurrPos);
+		let ph = {operand_str: defname, pCurrPos: 0};
+		let canBeDefName = parserHelp.isName.call(ph, defname, ph.pCurrPos);
 		if (!canBeDefName) {
 			return null;
 		}
 
-		return ["!" + stringArray[1], stringArray[1]];
+		return ["!" + defname, defname];
+
+		// if (!stringArray || !stringArray[0] || !stringArray[1] || reg.test(stringArray[0]) || reg.test(stringArray[1])) {
+		// 	return null;
+		// }
+
+		// // check if the second part can be defname - parserHelp.isName()
+		// let ph = {operand_str: stringArray[1], pCurrPos: 0};
+		// let canBeDefName = parserHelp.isName.call(ph, stringArray[1], ph.pCurrPos);
+		// if (!canBeDefName) {
+		// 	return null;
+		// }
+
+		// return ["!" + stringArray[1], stringArray[1]];
 	}
 
 	function isValidFileUrl(url) {
@@ -3503,7 +3520,8 @@
 
 			return [true, match["name_from"] ? match["name_from"].replace(/''/g, "'") : null, match["name_to"] ? match["name_to"].replace(/''/g, "'") : null, external, shortLink ? subSTR : null];
 		} else if (shortLink) {
-			this.pCurrPos += shortLink[0].length + externalLength;
+			// this.pCurrPos += shortLink[0].length + externalLength;
+			this.pCurrPos += subSTR.length + externalLength;
 			this.operand_str = shortLink[1];
 			return [true, null, null, external, subSTR];
 		}

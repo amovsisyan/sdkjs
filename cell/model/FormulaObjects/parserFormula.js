@@ -2818,9 +2818,10 @@ parserHelp.setDigitSeparator(AscCommon.g_oDefaultCultureInfo.NumberDecimalSepara
 	 * @constructor
 	 * @extends {cName}
 	 */
-	function cName3D(val, ws, externalLink) {
+	function cName3D(val, ws, externalLink, shortLink) {
 		cName.call(this, val, ws);
 		this.externalLink = externalLink;
+		this.shortLink = shortLink;
 	}
 
 	cName3D.prototype = Object.create(cName.prototype);
@@ -2839,12 +2840,20 @@ parserHelp.setDigitSeparator(AscCommon.g_oDefaultCultureInfo.NumberDecimalSepara
 	};
 
 	cName3D.prototype.toString = function () {
-		var exPath = this.getExternalLinkStr(this.externalLink);
-		return parserHelp.getEscapeSheetName(exPath + this.ws.getName()) + "!" + cName.prototype.toString.call(this);
+		let exPath = this.getExternalLinkStr(this.externalLink);
+		let wsName = this.ws && this.ws.getName();
+		if (this.shortLink) {
+			return parserHelp.getEscapeSheetName(exPath) + "!" + cName.prototype.toString.call(this);
+		}
+		return parserHelp.getEscapeSheetName(exPath + wsName) + "!" + cName.prototype.toString.call(this);
 	};
 	cName3D.prototype.toLocaleString = function () {
-		var exPath = this.getExternalLinkStr(this.externalLink, true);
-		return parserHelp.getEscapeSheetName(exPath + this.ws.getName()) + "!" + cName.prototype.toLocaleString.call(this);
+		let exPath = this.getExternalLinkStr(this.externalLink, true);
+		let wsName = this.ws && this.ws.getName();
+		if (this.shortLink) {
+			return parserHelp.getEscapeSheetName(exPath) + "!" + cName.prototype.toLocaleString.call(this);
+		}
+		return parserHelp.getEscapeSheetName(exPath + wsName) + "!" + cName.prototype.toLocaleString.call(this);
 	};
 	cName3D.prototype.getWsId = function () {
 		return this.ws && this.ws.Id;
@@ -8059,20 +8068,23 @@ function parserFormula( formula, parent, _ws ) {
 				t.is3D = true;
 
 				let externalLink = _3DRefTmp[3];
-				let externalDefName, externalSheetName, receivedDefName, receivedLink;
+				let externalDefName, externalSheetName, receivedDefName, receivedLink, isShortLink;
 
 				// this formula is checked for a short link - the line is split into two parts
 				let receivedFormula = _3DRefTmp[4];
 				if (receivedFormula) {
+					// receivedFormula - полученная, краткая формула которую нужно проверить на внутреннюю ссылку(они одинаковы по структуре)
 					receivedFormula = receivedFormula.split("!");
 					// the link can be either to another sheet or to another book - they have the same entry
 					receivedLink = receivedFormula[0];
 					receivedDefName = receivedFormula[1];
+					// todo last index of 
+					externalSheetName = receivedFormula[0];
 				}
 
 				// This check of short links is performed only when opening/reading, manual input is processed differently
 				if (receivedFormula && !local) {
-					let eReference = local ? t.wb.getExternalLinkByName(externalLink) : t.wb.getExternalLinkByIndex(externalLink - 1);
+					let eReference = t.wb.getExternalLinkByIndex(externalLink - 1);
 					if (eReference && eReference.DefinedNames) {
 						for (let i = 0; i < eReference.DefinedNames.length; i++) {
 							if (eReference.DefinedNames[i].Name === receivedDefName) {
@@ -8088,6 +8100,8 @@ function parserFormula( formula, parent, _ws ) {
 
 									if (regMatch && regMatch[1]) {
 										externalSheetName = regMatch[1];
+									} else if (refString) {
+										externalSheetName = refString.split("!")[0];
 									}
 								}
 								break;
@@ -8147,6 +8161,12 @@ function parserFormula( formula, parent, _ws ) {
 	
 										if (regMatch && regMatch[1]) {
 											externalSheetName = regMatch[1];
+										} else if (refString) {
+											let externalWB = eReference.getWb();
+											let depFormulas = externalWB && externalWB.dependencyFormulas;
+											if (depFormulas && depFormulas.defNames && depFormulas.defNames.wb && depFormulas.defNames.wb[receivedDefName]) {
+												externalSheetName = refString.split("!")[0];
+											}
 										}
 									}
 									break;
@@ -8154,18 +8174,10 @@ function parserFormula( formula, parent, _ws ) {
 							}
 						}
 
-						if (!externalSheetName) {
-							// err
-							parseResult.setError(c_oAscError.ID.FrmlWrongReferences);
-							if (!ignoreErrors) {
-								t.outStack = [];
-								return false;
-							}
-						} else {
-							sheetName = externalSheetName;
-							externalName = receivedLink;
-							externalLink = receivedLink;
-						}
+						sheetName = externalSheetName ? externalSheetName : receivedLink.split(".")[0];
+						externalName = receivedLink;
+						externalLink = receivedLink;
+						isShortLink = true;
 					}
 				}
 				
@@ -8173,7 +8185,7 @@ function parserFormula( formula, parent, _ws ) {
 					if (local) {
 						externalLink = t.wb.getExternalLinkIndexByName(externalLink);
 						if (externalLink === null) {
-							externalLink = _3DRefTmp[3];
+							externalLink = receivedLink ? receivedLink : _3DRefTmp[3];
 							if (!parseResult.externalReferenesNeedAdd) {
 								parseResult.externalReferenesNeedAdd = [];
 							}
@@ -8243,7 +8255,7 @@ function parserFormula( formula, parent, _ws ) {
 					}
 				} else {
 					parserHelp.isName.call(ph, t.Formula, ph.pCurrPos);
-					found_operand = new cName3D(ph.operand_str, wsF, externalLink);
+					found_operand = new cName3D(ph.operand_str, wsF, externalLink, isShortLink);
 					parseResult.addRefPos(prevCurrPos, ph.pCurrPos, t.outStack.length, found_operand);
 					if (local || (local === false && digitDelim === false)) { // local and digitDelim with value false using only for copypaste mode.
 						t.ca = isRecursiveFormula(found_operand, t);

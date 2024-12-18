@@ -15023,10 +15023,44 @@ function RangeDataManagerElem(bbox, data)
 		return res;
 	};
 
-	ExternalReference.prototype.removeSheetByName = function (sheetName) {
+	ExternalReference.prototype.removeSheetByName = function (sheetName, workbook) {
 		if (sheetName != null) {
 			let index = this.getSheetByName(sheetName);
 			if (index != null) {
+				let wb = this.getWb();
+				// проверить все defName которые записаны на этот лист и поменять их SheetId если они имеют wb область видимости
+				for (let i = 0; i < this.DefinedNames.length; i++) {
+					let defname = this.DefinedNames[i];
+					if (defname.SheetId === index) {
+						let defnameFromWorkbook = wb.getDefinesNames(defname.Name);
+						if (defnameFromWorkbook) {
+							let defnameArea3D = defnameFromWorkbook.parsedRef && defnameFromWorkbook.parsedRef.outStack && defnameFromWorkbook.parsedRef.outStack[0];
+							let defnameWorksheet = defnameArea3D.getWS();
+							// получаем все слушатели этого defname и перезаписываем лист на тот, на котором находится слушатель
+							let defNameDepInfo = workbook && workbook.dependencyFormulas && workbook.dependencyFormulas.defNameListeners && workbook.dependencyFormulas.defNameListeners[defname.Name];
+							if (defNameDepInfo && defNameDepInfo.listeners) {
+								let defNameListeners = defNameDepInfo.listeners;
+								for (let id in defNameListeners) {
+									let listener = defNameListeners[id];
+									let outStack = listener.outStack;
+									if (outStack) {
+										for (let j = 0; j < outStack.length; j++) {
+											let elem = outStack[j];
+											if (elem.type === AscCommonExcel.cElementType.name3D && elem.ws.sName === sheetName) {
+												// change ws
+												outStack[j] = new AscCommonExcel.cName3D(elem.value, defnameWorksheet ? defnameWorksheet : elem.ws, elem.externalLink, elem.shortLink);
+											}
+										}
+									}
+								}
+							}
+
+							this.DefinedNames[i].SheetId = null;
+							this.DefinedNames[i].RefersTo = defnameFromWorkbook.getRef();
+						}
+					}
+				}
+
 				this.SheetNames.splice(index, 1);
 				this.SheetDataSet.splice(index, 1);
 				delete this.worksheets[sheetName];
@@ -15034,7 +15068,7 @@ function RangeDataManagerElem(bbox, data)
 		}
 	};
 	
-	ExternalReference.prototype.updateData = function (arr, oPortalData, noData) {
+	ExternalReference.prototype.updateData = function (arr, oPortalData, noData, workbook) {
 		var t = this;
 		var isChanged = false;
 		var cloneER = this.clone();
@@ -15098,7 +15132,7 @@ function RangeDataManagerElem(bbox, data)
 		for (let wsName in this.worksheets) {
 			if (!existedWsArray.includes(wsName)) {
 				// throw an error if we referenced to one of the deleted sheets?
-				this.removeSheetByName(wsName);
+				this.removeSheetByName(wsName, workbook);
 			}
 		}
 
