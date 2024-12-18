@@ -472,6 +472,8 @@
 				  self._onSelectColumnsByRange.apply(self, arguments);
 			  }, "selectRowsByRange": function () {
 				  self._onSelectRowsByRange.apply(self, arguments);
+			  }, "selectAllByRange": function () {
+				  self._onSelectAllByRange.apply(self, arguments);
 			  }, "save": function () {
 				  self.Api.asc_Save();
 			  }, "showCellEditorCursor": function () {
@@ -2326,6 +2328,10 @@
     this.getWorksheet()._selectRowsByRange();
   };
 
+  WorkbookView.prototype._onSelectAllByRange = function() {
+    this.getWorksheet()._selectAllByRange();
+  };
+
   WorkbookView.prototype._onShowCellEditorCursor = function() {
     // Показываем курсор
     if (this.getCellEditMode()) {
@@ -2591,6 +2597,7 @@
         item.resize(/*isDraw*/i == activeIndex, this.cellEditor);
       }
       this.drawWorksheet();
+	  this.checkScrollRtl(this.getWorksheet().getRightToLeft());
     } else {
       // ToDo не должно происходить ничего, но нам приходит resize сверху, поэтому проверим отрисовывали ли мы
       if (-1 === this.wsActive || this.wsMustDraw) {
@@ -6031,6 +6038,11 @@
 			}
 		}
 	};
+
+	WorkbookView.prototype.setDefaultDirection = function(val) {
+		this.model.setDefaultDirection(val);
+	};
+
 
 	//временно добавляю сюда. в идеале - использовать общий класс из документов(или сделать базовый, от него наследоваться) - CDocumentSearch
 	function CDocumentSearchExcel(wb) {

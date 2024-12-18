@@ -1325,6 +1325,9 @@
 			case AscDFH.historydescription_Collaborative_DeletedTextRecovery:
 				sString = "Collaborative_DeletedTextRecovery";
 				break;
+			case AscDFH.historydescription_Presentation_MergeSelectedShapes:
+				sString = "Presentation_MergeSelectedShapes";
+				break;
 		}
 		return sString;
 	}
@@ -4006,6 +4009,7 @@
 	AscDFH.historyitem_Pdf_Form_Add_Kid			= AscDFH.historyitem_type_Pdf_Form | 2;
 	AscDFH.historyitem_Pdf_Form_Remove_Kid		= AscDFH.historyitem_type_Pdf_Form | 3;
 	AscDFH.historyitem_Pdf_Form_Change_Display	= AscDFH.historyitem_type_Pdf_Form | 4;
+	AscDFH.historyitem_Pdf_Form_Changed			= AscDFH.historyitem_type_Pdf_Form | 5;
 	
 	AscDFH.historyitem_Pdf_List_Form_Cur_Idxs	= AscDFH.historyitem_type_Pdf_List_Form | 1;
 	AscDFH.historyitem_Pdf_List_Form_Top_Idx	= AscDFH.historyitem_type_Pdf_List_Form | 2;
@@ -4536,6 +4540,8 @@
 	window['AscDFH'].historydescription_CustomProperties_Add                        = 0x01b8;
 	window['AscDFH'].historydescription_CustomProperties_Remove                     = 0x01b9;
 	window['AscDFH'].historydescription_CustomProperties_Modify                     = 0x01c0;
+
+	window['AscDFH'].historydescription_Presentation_MergeSelectedShapes            = 0x01c1;
 	// pdf
 	window['AscDFH'].historydescription_Pdf_AddAnnot			= 0x29a;
 	window['AscDFH'].historydescription_Pdf_FreeTextGeom		= 0x29b;

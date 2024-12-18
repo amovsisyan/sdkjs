@@ -75,7 +75,7 @@ function (window, undefined) {
 	var arrayFunctionsMap = {"SUMPRODUCT": 1, "FILTER": 1, "SUM": 1, "LOOKUP": 1, "AGGREGATE": 1};
 
 	var importRangeLinksState = {importRangeLinks: null, startBuildImportRangeLinks: null};
-	const aExcludeRecursiveFomulas = ['ISFORMULA', 'SHEETS', 'AREAS', 'COLUMN', 'COLUMNS', 'ROW', 'ROWS'];
+	const aExcludeRecursiveFormulas = ['ISFORMULA', 'SHEETS', 'AREAS', 'COLUMN', 'COLUMNS', 'ROW', 'ROWS', 'CELL', 'INDIRECT'];
 
 	function getArrayCopy(arr) {
 		var newArray = [];
@@ -2822,7 +2822,10 @@ parserHelp.setDigitSeparator(AscCommon.g_oDefaultCultureInfo.NumberDecimalSepara
 		return this._toString(true);
 	};
 	cStrucPivotTable.prototype._toString = function (isLocal) {
-		return this.fieldString + '[' + this.itemString + ']';
+		if (this.fieldString) {
+			return this.fieldString + '[' + this.itemString + ']';
+		}
+		return this.itemString;
 	};
 
 	/**
@@ -3537,7 +3540,7 @@ parserHelp.setDigitSeparator(AscCommon.g_oDefaultCultureInfo.NumberDecimalSepara
 
 		return calculateFunc(argsArray);
 	};
-	cBaseFunction.prototype._prepareArguments = function (args, arg1, bAddFirstArrElem, typeArray, bFirstRangeElem) {
+	cBaseFunction.prototype._prepareArguments = function (args, arg1, bAddFirstArrElem, typeArray, bFirstRangeElem, notArrayError) {
 		var newArgs = [];
 		var indexArr = null;
 
@@ -3556,7 +3559,7 @@ parserHelp.setDigitSeparator(AscCommon.g_oDefaultCultureInfo.NumberDecimalSepara
 				} else if (cElementType.error === arg.type) {
 					newArgs[i] = arg;
 				} else {
-					newArgs[i] = new cError(cErrorType.division_by_zero);
+					newArgs[i] = new cError(notArrayError ? notArrayError : cErrorType.division_by_zero);
 				}
 			} else if (cElementType.cellsRange === arg.type || cElementType.cellsRange3D === arg.type) {
 				newArgs[i] = bFirstRangeElem ? arg.getValueByRowCol(0,0) : arg.cross(arg1);
@@ -6203,7 +6206,7 @@ _func[cElementType.cell3D] = _func[cElementType.cell];
 					res = [];
 				}
 
-				if (i === this.argPosArr.length - 1 && this.error !== undefined) {
+				if (i === this.argPosArr.length - 1 && this.error === c_oAscError.ID.FrmlParenthesesCorrectCount) {
 					// We don't cut off the line at the last element, but only if the formula is parsed with an error (the formula is not closed or not entered completely)
 					res.push(sFormula.substring(this.argPosArr[i].start - 1, this.argPosArr[i].end));
 					continue
@@ -7965,7 +7968,7 @@ function parserFormula( formula, parent, _ws ) {
 			if (parserFormula.ca) {
 				return bRecursiveCell;
 			}
-			if (sFunctionName && aExcludeRecursiveFomulas.includes(sFunctionName)) {
+			if (sFunctionName && aExcludeRecursiveFormulas.includes(sFunctionName)) {
 				return bRecursiveCell;
 			}
 			if (bConditionalFormula) {
@@ -11408,7 +11411,7 @@ function parserFormula( formula, parent, _ws ) {
 	window['AscCommonExcel'].bIsSupportArrayFormula = bIsSupportArrayFormula;
 	window['AscCommonExcel'].bIsSupportDynamicArrays = bIsSupportDynamicArrays;
 
-	window['AscCommonExcel'].aExcludeRecursiveFomulas = aExcludeRecursiveFomulas;
+	window['AscCommonExcel'].aExcludeRecursiveFormulas = aExcludeRecursiveFormulas;
 
 	window['AscCommonExcel'].cNumber = cNumber;
 	window['AscCommonExcel'].cString = cString;

@@ -2968,6 +2968,8 @@
 		this.TimelineStyles = null;
 
 		this.metadata = null;
+		//true - rightToLeft, false/null - leftToRight
+		this.defaultDirection = null;
 	}
 	Workbook.prototype.init=function(tableCustomFunc, tableIds, sheetIds, bNoBuildDep, bSnapshot){
 		if(this.nActive < 0)
@@ -5614,6 +5616,15 @@
 		this.oGoalSeek && this.oGoalSeek.step();
 	};
 
+	Workbook.prototype.setDefaultDirection = function(val) {
+		this.defaultDirection = val;
+	};
+	Workbook.prototype.getDefaultDirection = function() {
+		return this.defaultDirection;
+	};
+
+
+
 
 
 //-------------------------------------------------------------------------------------------------
@@ -6961,12 +6972,14 @@
 			}
 		}
 	};
-	Worksheet.prototype.setRightToLeft = function (value) {
+	Worksheet.prototype.setRightToLeft = function (value, addToHistory) {
 		var view = this.sheetViews[0];
 		if (value !== view.rightToLeft) {
-			/*AscCommon.History.Create_NewPoint();
-			AscCommon.History.Add(AscCommonExcel.g_oUndoRedoWorksheet, AscCH.historyitem_Worksheet_SetShowFormulas,
-				this.getId(), new Asc.Range(0, 0, gc_nMaxCol0, gc_nMaxRow0), new UndoRedoData_FromTo(view.showFormulas, value));*/
+			if (addToHistory) {
+				AscCommon.History.Create_NewPoint();
+				AscCommon.History.Add(AscCommonExcel.g_oUndoRedoWorksheet, AscCH.historyitem_Worksheet_SetRightToLeft,
+					this.getId(), new Asc.Range(0, 0, gc_nMaxCol0, gc_nMaxRow0), new UndoRedoData_FromTo(view.rightToLeft, value));
+			}
 			view.rightToLeft = value;
 
 			this.workbook.handlers.trigger("changeSheetViewSettings", this.getId(), AscCH.historyitem_Worksheet_SetRightToLeft);
@@ -15185,7 +15198,7 @@
 	 * @private
 	 */
 	function _isExcludeFormula(aOutStack, oAreaMap) {
-		const aExcludeFormulas = AscCommonExcel.aExcludeRecursiveFomulas;
+		const aExcludeFormulas = AscCommonExcel.aExcludeRecursiveFormulas;
 		for (let i = 0, length = aOutStack.length; i < length; i++) {
 			const oElem = aOutStack[i];
 			if (oElem.type === cElementType.func && aExcludeFormulas.includes(oElem.name)) {
@@ -15225,6 +15238,7 @@
 	Cell.prototype.getListeners = function () {
 		const ws = this.ws;
 		const oDepFormulas = ws.workbook.dependencyFormulas;
+		const aExcludeFormulas = AscCommonExcel.aExcludeRecursiveFormulas;
 
 		if (!oDepFormulas || !oDepFormulas.sheetListeners.hasOwnProperty(ws.Id)) {
 			return null;
@@ -15232,13 +15246,14 @@
 
 		const nCellIndex = getCellIndex(this.nRow, this.nCol);
 		const oFormulaParsed = this.getFormulaParsed();
+		const sFunctionName = oFormulaParsed && oFormulaParsed.getFunctionName();
 		if (oFormulaParsed && !oFormulaParsed.ca) {
 			return null;
 		}
 		const aOutStack = oFormulaParsed && oFormulaParsed.outStack;
 		const oSheetListeners = oDepFormulas.sheetListeners[ws.Id];
 
-		if (oSheetListeners.cellMap.hasOwnProperty(nCellIndex)) {
+		if (oSheetListeners.cellMap.hasOwnProperty(nCellIndex) && !aExcludeFormulas.includes(sFunctionName)) {
 			return oSheetListeners.cellMap[nCellIndex];
 		} else if (aOutStack && aOutStack.length) {
 			for (let nIndex in oSheetListeners.areaMap) {
@@ -21417,6 +21432,7 @@
 					row[nCol].setIsTime(true);
 				}
 			}
+			row[nCol].setStartValue(nVal);
 		},
 		isOnlyIntegerSequence: function(){
 			var bRes = true;
@@ -21657,7 +21673,8 @@
 						//для дат и чисел с префиксом автозаполняются только целочисленные последовательности
 						let nFirstVal = oFirstData.getVal();
 						let bIsNotIntegerSequence = oSequence.a1 !== parseInt(oSequence.a1);
-						let bDateCalcModeCorrectSeq = bIsCalcDateMode && parseInt(nFirstVal) === Math.round(oSequence.a0);
+						let bDateCalcModeHasDiffDay = aDigits.length > 1 && bIsCalcDateMode && this.isDiffDaysForCalcMode(aDigits, nFirstVal);
+						let bDateCalcModeCorrectSeq = bIsCalcDateMode && !bDateCalcModeHasDiffDay && parseInt(nFirstVal) === Math.round(oSequence.a0);
 						let sPrefix = oFirstData.getPrefix();
 						let bDelimiter = oFirstData.getDelimiter();
 						// For Date format
@@ -21984,16 +22001,35 @@
 			}
 		},
 		/**
+		 * Checks has different days in the date of the selected range for date calculate modes from the context menu.
+		 * Applies for modes : "Fill months", "Fill years".
+		 * @param {{x:number, y:number}[]} aDigits
+		 * @param {number} nFirstValue
+		 * @returns {boolean}
+		 */
+		isDiffDaysForCalcMode: function (aDigits, nFirstValue) {
+			const SECOND_VALUE_INDEX = 1;
+			const nSecondValue = aDigits[SECOND_VALUE_INDEX].y;
+			const dtFirstValue = new Asc.cDate().getDateFromExcel(nFirstValue < 60 ? nFirstValue + 1 : nFirstValue);
+			const dtSecondValue = new Asc.cDate().getDateFromExcel(nSecondValue < 60 ? nSecondValue + 1 : nSecondValue);
+
+			return dtFirstValue.getDate() !== dtSecondValue.getDate();
+		},
+		/**
 		 * Calculates date based on step and modes: "Fill months", "Fill years" or "Fill weekdays".
 		 * @param {cDataRow} oDataRow
 		 * @returns {number}
 		 */
 		calculateDate: function (oDataRow) {
+			const DEFAULT_STEP = this.bReverse ? -1 : 1;
 			const oSequence = oDataRow.getSequence();
 			const nChosenMenuItem = this.getFillMenuChosenProp();
 			let nStep =  null;
 			let nStepDivider = null;
 			let nUnitDate = null;
+			// Flag for "Fill Month" and "Fill years". If the step is less than the last day of the month or days in the year,
+			// we change nVal of DataRow and work with it as previous value for every cell of selected range.
+			let bUseValFromDataRow = false;
 
 			// Find last day of month and days in year for correct work with month and year mode.
 			if (this.getLastDayOfMonth() == null && this.getDaysInYear() == null) {
@@ -22014,6 +22050,23 @@
 					nUnitDate = oSeriesDateUnitType.year
 					nStepDivider = this.getDaysInYear();
 					break;
+			}
+			if (!this.getIsOneSelectedCell() && nChosenMenuItem !== Asc.c_oAscFillType.fillWeekdays) {
+				bUseValFromDataRow =  Math.abs(oSequence.a1) < nStepDivider;
+			}
+			if (bUseValFromDataRow) {
+				nStep = DEFAULT_STEP;
+				const oCellInfo = {
+					step: nStep,
+					dateUnit: nUnitDate,
+					previousValue: oDataRow.getVal(),
+					previousIntValue: oDataRow.getVal(),
+					expectedDayValue: oDataRow.getStartValue()
+				};
+				const oResult = _calculateDate(oCellInfo, true);
+				oDataRow.setVal(oResult.previousValue);
+
+				return oResult.currentValue;
 			}
 			nStep = this.getIsOneSelectedCell() ? oSequence.a1 : Math.round(oSequence.a1 / nStepDivider);
 			const oCellInfo = {
@@ -22223,6 +22276,7 @@
 	function cDataRow(nCol, nVal, bDelimiter, sPrefix, nPadding, bDate, oAdditional, aTimePeriods) {
 		this.nCol = nCol;
 		this.nVal = nVal;
+		this.nStartVal = null;
 		this.bDelimiter = bDelimiter;
 		this.sPrefix = sPrefix;
 		this.nPadding = nPadding;
@@ -22251,6 +22305,32 @@
 	 */
 	cDataRow.prototype.getVal = function() {
 		return this.nVal;
+	};
+	/**
+	 * Method sets value of current cell
+	 * @memberof cDataRow
+	 * @param {number} nVal
+	 */
+	cDataRow.prototype.setVal = function(nVal) {
+		this.nVal = nVal;
+	};
+	/**
+	 * Method returns initial value of current cell.
+	 * Uses to autofill by context menu for  "Fill months",  "Fill years".
+	 * @memberof cDataRow
+	 * @returns {number}
+	 */
+	cDataRow.prototype.getStartValue = function() {
+		return this.nStartVal;
+	};
+	/**
+	 * Method sets initial value of current cell.
+	 * Uses to autofill by context menu for  "Fill months",  "Fill years".
+	 * @memberOf cDataRow
+	 * @param {number} nVal
+	 */
+	cDataRow.prototype.setStartValue = function(nVal) {
+		this.nStartVal = nVal;
 	};
 	/**
 	 * Method returns flag which checks cell has delimiter.

@@ -631,7 +631,7 @@
 			graphics.RestoreGrState();
 
 			topLevelShapesAndGroups.forEach(function(shapeOrGroup) {
-				if (isFlipYMatrix) {
+				if (isFlipImages || isRecalculateTextY) {
 					drawShapeOrGroupRecursively(graphics, shapeOrGroup, baseMatrix, baseTextMatrix, isRecalculateTextY,
 						isFlipImages, logic_h_mm);
 				} else {
@@ -712,8 +712,14 @@
 		for(let i = 0; i < pageContent.shapes.length; i++) {
 			let shape = pageContent.shapes[i];
 
+			// inherit styles
+			let stylesWithRealizedInheritance = new Set();
+			shape.realizeStyleInheritanceRecursively(this.styleSheets, stylesWithRealizedInheritance);
+			// inherit master and links to master styles
 			shape.realizeMasterInheritanceRecursively(masters);
-			shape.realizeStyleInheritanceRecursively(this.styleSheets);
+			// inherit master styles
+			// TODO performance: realize style inheritance only if style is inherited from master
+			shape.realizeStyleInheritanceRecursively(this.styleSheets, stylesWithRealizedInheritance);
 
 			if (shape.type === "Group") {
 				let cGroupShapeAndText = shape.toCGroupShapeRecursively(this, pageInfo, drawingPageScale);
