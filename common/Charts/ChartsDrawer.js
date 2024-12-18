@@ -8383,6 +8383,10 @@ drawBoxWhiskerChart.prototype = {
 		}
 	},
 
+	_calculateDLbl: function () {
+
+	},
+
 	_createMeanMarker: function (x, y, halfSize) {
 		const pathId = this.cChartSpace.AllocPath();
 		const path = this.cChartSpace.GetPath(pathId);
@@ -19204,6 +19208,8 @@ CColorObj.prototype =
 		this.nonoutliers = seria && seria.layoutPr && seria.layoutPr.visibility ? seria.layoutPr.visibility.nonoutliers : false;
 		this.meanLine = seria && seria.layoutPr && seria.layoutPr.visibility ? seria.layoutPr.visibility.meanLine : false;
 		this.meanMarker = seria && seria.layoutPr && seria.layoutPr.visibility ? seria.layoutPr.visibility.meanMarker : false;
+		this.idxs = [];
+		this.idx = 0;
 		this._calculate(seria, numLit, strLit, axisProperties);
 	}
 
@@ -19265,20 +19271,21 @@ CColorObj.prototype =
 			return {bEmpty : true}
 		}
 
-		const getLowest = function (arr, threshold) {
+		const findTails = function (arr, lowerThreshold, lowerBody, higherThreshold, upperBody) {
+			let index = 0;
 			for (let i = 0; i < arr.length; i++) {
-				if (arr[i] >= threshold) {
-					return arr[i];
-				}
-			}
-			return null;
-		}
 
-		const getHighest = function (arr, threshold) {
-			for (let i = arr.length - 1; i >= 0; i--) {
-				if (arr[i] <= threshold) {
+				if (arr[i] >= threshold && arr[i] <= lowerBody) {
 					return arr[i];
+				} else if (arr[i] > lowerBody) {
+					return null;
 				}
+
+				// even if idxs are not changed, the idx should change
+				if (this.outliers) {
+					this.idxs.push(idx);
+				}
+				this.idx += 1;
 			}
 			return null;
 		}
@@ -19300,16 +19307,16 @@ CColorObj.prototype =
 			? AscCommonExcel.getPercentileExclusive(arr, 0.25, true)
 			: AscCommonExcel.getPercentile(arr, 0.25, true);
 
-		// Get the value of the first quartile, convert "#!Num" to null
-		const fFirstQuartileVal = fFirstQuartile && fFirstQuartile.getValue() !== '#NUM!' ? fFirstQuartile.getValue() : null;
+		// Get the value of the first quartile, convert Error to null
+		const fFirstQuartileVal = fFirstQuartile && !(fFirstQuartile instanceof AscCommonExcel.cErrorType) ? fFirstQuartile.getValue() : null;
 
 		// Get the second quartile using the appropriate method based on `exclusive`
 		const fThirdQuartile = this.exclusive
 			? AscCommonExcel.getPercentileExclusive(arr, 0.75, true)
 			: AscCommonExcel.getPercentile(arr, 0.75, true);
 
-		// Get the value of the second quartile, convert "#!Num" to null
-		const fThirdQuartileVal = fThirdQuartile && fThirdQuartile.getValue() !== '#NUM!' ? fThirdQuartile.getValue() : null;
+		// Get the value of the second quartile, convert Error to null
+		const fThirdQuartileVal = fThirdQuartile && !(fThirdQuartile instanceof AscCommonExcel.cErrorType) ? fThirdQuartile.getValue() : null;
 
 		// Calculate the interquartile range (IQR), ensuring null values are handled
 		const fIQR = (fThirdQuartileVal !== null && fFirstQuartileVal !== null)
