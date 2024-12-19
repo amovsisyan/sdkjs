@@ -3014,37 +3014,33 @@
 
 	function isExternalShortLink (string) {
 		// short links that ms writes as [externalLink] + "!" + "Defname"
-		// strings come in "!"+"Defname" format
+		// strings come in "!"+"Defname" format only after external
 		if (string[0] !== "!") {
 			return null;
 		}
-		// we go through the characters after the first
-		for (let i = 1; i < string.length; i++) {
-			let char = string[i];
-	
-			// if the character is a space or backslash, return null
-			if (char === ' ' || char === '\\' || char === "!") {
-				return null;
-			}
+
+		let defname = string.slice(1);
+		if (!AscCommon.rx_defName.test(defname)) {
+			return null;
 		}
-		return [string, string.slice(1)];
+
+		return [string, defname];
 	}
 
 	function isExternalShortLinkLocal (string) {
-		// short links that user writes as "'externalLinkWithoutBrackets'" + "!" + "Defname" - "'DefTest.xlsx'!_s1"
+		// short links that user writes as "'externalLinkWithoutBrackets'" + "!" + "Defname"  -  "'DefTest.xlsx'!_s1"
 		// we split the string into two parts, where the separator is an exclamation point
 		if (!string) {
 			return null;
 		}
-		
 		// let stringArray = string.split("!");
-		let reg = /["',\/\[\]\$\%\^\&\*\(\)\{\}\!\=\+\-\:\#\@\~\`]/;	// reg contains special characters that are not allowed in the string
+		let shortLinkReg = /[\<\>\?\[\]\\\/\|\*\+\"\:]/;	// reg contains special characters that are not allowed in the shortLink
+
 		let exclamationMarkIndex = string.indexOf("!");
+		let externalLink = exclamationMarkIndex !== -1 ? string.substring(0, exclamationMarkIndex) : null;
+		let defname = exclamationMarkIndex !== -1 ? string.substring(exclamationMarkIndex + 1) : null;
 
-		let externalLink = exclamationMarkIndex !== -1 ? string.substring(0, string.indexOf("!")) : null;
-		let defname = exclamationMarkIndex !== -1 ? string.substring(string.indexOf("!") + 1) : null;
-
-		if (!externalLink || !defname || reg.test(externalLink) || reg.test(defname)) {
+		if (!externalLink || !defname || shortLinkReg.test(externalLink) || !AscCommon.rx_defName.test(defname)) {
 			return null;
 		}
 
@@ -3056,19 +3052,6 @@
 		}
 
 		return ["!" + defname, defname];
-
-		// if (!stringArray || !stringArray[0] || !stringArray[1] || reg.test(stringArray[0]) || reg.test(stringArray[1])) {
-		// 	return null;
-		// }
-
-		// // check if the second part can be defname - parserHelp.isName()
-		// let ph = {operand_str: stringArray[1], pCurrPos: 0};
-		// let canBeDefName = parserHelp.isName.call(ph, stringArray[1], ph.pCurrPos);
-		// if (!canBeDefName) {
-		// 	return null;
-		// }
-
-		// return ["!" + stringArray[1], stringArray[1]];
 	}
 
 	function isValidFileUrl(url) {
@@ -3506,7 +3489,9 @@
 			}
 		}
 
-		let shortLink = isExternalShortLink(subSTR) || isExternalShortLinkLocal(subSTR);
+		// let shortLink = external ? null : (isExternalShortLink(subSTR) || isExternalShortLinkLocal(subSTR));
+		// let stringToCheck = external ? formula.substring(start_pos) : subSTR;
+		let shortLink = isExternalShortLink(subSTR) || (!external && isExternalShortLinkLocal(subSTR));
 		let match = XRegExp.exec(subSTR, rx_ref3D_quoted) || XRegExp.exec(subSTR, rx_ref3D_non_quoted);
 		
 		if(!match && support_digital_start) {
@@ -3971,8 +3956,13 @@
 		}
 	};
 // Возвращает экранируемое название листа
-	parserHelper.prototype.getEscapeSheetName = function (sheet)
+	parserHelper.prototype.getEscapeSheetName = function (sheet, shortLink)
 	{
+		/* short links are not wrapped in quotes */
+		if (shortLink) {
+			return rx_test_ws_name.test(sheet) ? sheet : sheet.replace(/'/g, "''");
+		}
+
 		return rx_test_ws_name.test(sheet) ? sheet : "'" + sheet.replace(/'/g, "''") + "'";
 	};
 	/**

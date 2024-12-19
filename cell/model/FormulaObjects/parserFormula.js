@@ -642,7 +642,7 @@ parserHelp.setDigitSeparator(AscCommon.g_oDefaultCultureInfo.NumberDecimalSepara
 		}
 		return false;
 	};
-	cBaseType.prototype.getExternalLinkStr = function (externalLink, locale) {
+	cBaseType.prototype.getExternalLinkStr = function (externalLink, locale, isShortLink) {
 		var wb = Asc["editor"] && Asc["editor"].wb;
 
 		var index = externalLink;
@@ -658,7 +658,7 @@ parserHelp.setDigitSeparator(AscCommon.g_oDefaultCultureInfo.NumberDecimalSepara
 				res += path;
 			}
 			if (name) {
-				res += "[" + name + "]";
+				res += isShortLink ? name : "[" + name + "]";
 			}
 		} else if (externalLink) {
 			res = externalLink;
@@ -2843,15 +2843,15 @@ parserHelp.setDigitSeparator(AscCommon.g_oDefaultCultureInfo.NumberDecimalSepara
 		let exPath = this.getExternalLinkStr(this.externalLink);
 		let wsName = this.ws && this.ws.getName();
 		if (this.shortLink) {
-			return parserHelp.getEscapeSheetName(exPath) + "!" + cName.prototype.toString.call(this);
+			return parserHelp.getEscapeSheetName(exPath, this.shortLink) + "!" + cName.prototype.toString.call(this);
 		}
 		return parserHelp.getEscapeSheetName(exPath + wsName) + "!" + cName.prototype.toString.call(this);
 	};
 	cName3D.prototype.toLocaleString = function () {
-		let exPath = this.getExternalLinkStr(this.externalLink, true);
+		let exPath = this.getExternalLinkStr(this.externalLink, true, this.shortLink);
 		let wsName = this.ws && this.ws.getName();
 		if (this.shortLink) {
-			return parserHelp.getEscapeSheetName(exPath) + "!" + cName.prototype.toLocaleString.call(this);
+			return parserHelp.getEscapeSheetName(exPath, this.shortLink) + "!" + cName.prototype.toLocaleString.call(this);
 		}
 		return parserHelp.getEscapeSheetName(exPath + wsName) + "!" + cName.prototype.toLocaleString.call(this);
 	};
@@ -8072,14 +8072,13 @@ function parserFormula( formula, parent, _ws ) {
 
 				// this formula is checked for a short link - the line is split into two parts
 				let receivedFormula = _3DRefTmp[4];
-				if (receivedFormula) {
-					// receivedFormula - полученная, краткая формула которую нужно проверить на внутреннюю ссылку(они одинаковы по структуре)
-					receivedFormula = receivedFormula.split("!");
+				let exclamationMarkIndex = typeof (receivedFormula) === "string" ? receivedFormula.lastIndexOf("!") : -1;
+				if (receivedFormula && exclamationMarkIndex !== -1) {
+					// receivedFormula - the received, short formula that needs to be checked for an internal link (they are the same in structure)
 					// the link can be either to another sheet or to another book - they have the same entry
-					receivedLink = receivedFormula[0];
-					receivedDefName = receivedFormula[1];
-					// todo last index of 
-					externalSheetName = receivedFormula[0];
+					receivedLink = receivedFormula.substring(0, exclamationMarkIndex);
+					receivedDefName = receivedFormula.substring(exclamationMarkIndex + 1);
+					externalSheetName = receivedLink;
 				}
 
 				// This check of short links is performed only when opening/reading, manual input is processed differently

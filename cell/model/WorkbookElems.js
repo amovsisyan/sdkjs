@@ -15028,15 +15028,18 @@ function RangeDataManagerElem(bbox, data)
 			let index = this.getSheetByName(sheetName);
 			if (index != null) {
 				let wb = this.getWb();
-				// проверить все defName которые записаны на этот лист и поменять их SheetId если они имеют wb область видимости
+				/*
+					when deleting a sheet from ER, we also need to check all defnames and their listeners, since when creating a short link,
+					we create a non-existent ws referenced in cName3D before receiving the promise with real data
+				*/
 				for (let i = 0; i < this.DefinedNames.length; i++) {
 					let defname = this.DefinedNames[i];
 					if (defname.SheetId === index) {
 						let defnameFromWorkbook = wb.getDefinesNames(defname.Name);
 						if (defnameFromWorkbook) {
 							let defnameArea3D = defnameFromWorkbook.parsedRef && defnameFromWorkbook.parsedRef.outStack && defnameFromWorkbook.parsedRef.outStack[0];
-							let defnameWorksheet = defnameArea3D.getWS();
-							// получаем все слушатели этого defname и перезаписываем лист на тот, на котором находится слушатель
+							let defnameWorksheet = defnameArea3D && defnameArea3D.getWS && defnameArea3D.getWS();
+							// we get all the listeners of this defname and rewrite the sheet to the one on which the listener is located
 							let defNameDepInfo = workbook && workbook.dependencyFormulas && workbook.dependencyFormulas.defNameListeners && workbook.dependencyFormulas.defNameListeners[defname.Name];
 							if (defNameDepInfo && defNameDepInfo.listeners) {
 								let defNameListeners = defNameDepInfo.listeners;
@@ -15055,6 +15058,7 @@ function RangeDataManagerElem(bbox, data)
 								}
 							}
 
+							// if the range has a workbook scope, delete sheetId and write a new refInfo(RefersTo)
 							this.DefinedNames[i].SheetId = null;
 							this.DefinedNames[i].RefersTo = defnameFromWorkbook.getRef();
 						}
