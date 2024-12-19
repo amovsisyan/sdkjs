@@ -3092,6 +3092,38 @@
 	});
 
 	/**
+	 * Wraps the range object with a specified type of content control.
+	 * @memberof ApiRange
+	 * @typeofeditors ["CDE"]
+	 * @param {ControlType} [sType="block"] - content control type
+	 * @return {ApiInlineLvlSdt | ApiBlockLvlSdt}  
+	 * @see office-js-api/Examples/{Editor}/ApiRange/Methods/InsertInContentControl.js
+	 */
+	ApiRange.prototype.InsertInContentControl = function(sType)
+	{
+		if (sType == undefined)
+			sType = "block";
+
+		private_RefreshRangesPosition();
+		private_RemoveEmptyRanges();
+
+		let oDoc = private_GetLogicDocument();
+		let oOldState = oDoc.SaveDocumentState();
+		this.Select(false);
+		private_TrackRangesPositions();
+
+		let oCC = null;
+		if ("block" == sType)
+			oCC = new ApiBlockLvlSdt(oDoc.AddContentControl(Asc.c_oAscSdtLevelType.Block));
+		else if ("inline" == sType)
+			oCC = new ApiInlineLvlSdt(oDoc.AddContentControl(Asc.c_oAscSdtLevelType.Inline));
+
+		oDoc.LoadDocumentState(oOldState);
+		
+		return oCC;
+	};
+
+	/**
 	 * Class representing a document.
 	 * @constructor
 	 * @typeofeditors ["CDE"]
@@ -4342,6 +4374,11 @@
 	/**
      * Available drwaing element for grouping
      * @typedef {(ApiShape | ApiGroup | ApiImage | ApiChart)} DrawingForGroup
+	 */
+
+	/**
+	 * Available content controls types
+	 * @typedef {"inline" | "block"} ControlType
 	 */
 
 	//------------------------------------------------------------------------------------------------------------------
@@ -9045,14 +9082,13 @@
 		return true;
 	};
 	/**
-	 * Wraps the paragraph object with a rich text content control.
+	 * Wraps the paragraph object with a block level content control.
 	 * @memberof ApiParagraph
 	 * @typeofeditors ["CDE"]
-	 * @param {number} nType - Defines if this method returns the ApiBlockLvlSdt (nType === 1) or ApiParagraph (any value except 1) object.
-	 * @return {ApiParagraph | ApiBlockLvlSdt}  
+	 * @return {ApiBlockLvlSdt}  
 	 * @see office-js-api/Examples/{Editor}/ApiParagraph/Methods/InsertInContentControl.js
 	 */
-	ApiParagraph.prototype.InsertInContentControl = function(nType)
+	ApiParagraph.prototype.InsertInContentControl = function()
 	{
 		var Document = private_GetLogicDocument();
 		var ContentControl;
@@ -9073,10 +9109,7 @@
 			ContentControl.Sdt.SetShowingPlcHdr(false);
 		}
 
-		if (nType === 1)
-			return ContentControl;
-		else 
-			return this;
+		return ContentControl;
 	};
 	/**
 	 * Inserts a paragraph at the specified position.
@@ -11614,14 +11647,13 @@
         return null;
 	};
 	/**
-	 * Wraps the current table object with a content control.
+	 * Wraps the current table object with a block level content control.
 	 * @memberof ApiTable
 	 * @typeofeditors ["CDE"]
-	 * @param {number} nType - Defines if this method returns the ApiBlockLvlSdt (nType === 1) or ApiTable (any value except 1) object.
-	 * @return {ApiTable | ApiBlockLvlSdt}  
+	 * @return {ApiBlockLvlSdt}  
 	 * @see office-js-api/Examples/{Editor}/ApiTable/Methods/InsertInContentControl.js
 	 */
-	ApiTable.prototype.InsertInContentControl = function(nType)
+	ApiTable.prototype.InsertInContentControl = function()
 	{
 		var Document = private_GetLogicDocument();
 
@@ -11644,10 +11676,7 @@
 			ContentControl.Sdt.SetShowingPlcHdr(false);
 		}
 
-		if (nType === 1)
-			return ContentControl;
-		else 
-			return this;
+		return ContentControl;
 	};
     /**
      * Returns a table that contains the current table.
@@ -15686,45 +15715,57 @@
 	 * Wraps the graphic object with a rich text content control.
 	 * @memberof ApiDrawing
 	 * @typeofeditors ["CDE"]
-	 * @param {number} nType - Defines if this method returns the ApiBlockLvlSdt (nType === 1) or ApiDrawing (any value except 1) object.
-	 * @return {ApiDrawing | ApiBlockLvlSdt}  
+	 * @param {ControlType} [sType="block"] - content control type
+	 * @return {ApiBlockLvlSdt}  
 	 * @see office-js-api/Examples/{Editor}/ApiDrawing/Methods/InsertInContentControl.js
 	 */
-	ApiDrawing.prototype.InsertInContentControl = function(nType)
+	ApiDrawing.prototype.InsertInContentControl = function(sType)
 	{
-		let Document			= editor.private_GetLogicDocument();
-		let ContentControl;
-		let paragraphInControl	= null;
-		let paraDrawing         = this.getParaDrawing();
-		let parentParagraph		= paraDrawing.GetParagraph();
-		let paraIndex 			= -1;
-		if (parentParagraph)
-			paraIndex = parentParagraph.Index;
+		if (sType == undefined) {
+			sType = "block";
+		}
 
-		if (paraIndex >= 0)
+		let oDoc = private_GetLogicDocument();
+		let oCC;
+
+		if (this.Drawing.IsUseInDocument())
 		{
 			this.Select();
-			ContentControl = new ApiBlockLvlSdt(Document.AddContentControl(1));
-			Document.RemoveSelection();
+			if ("block" == sType)
+				oCC = new ApiBlockLvlSdt(oDoc.AddContentControl(Asc.c_oAscSdtLevelType.Block));
+			else if ("inline" == sType)
+				oCC = new ApiInlineLvlSdt(oDoc.AddContentControl(Asc.c_oAscSdtLevelType.Inline));
+
+			oDoc.RemoveSelection();
 		}
 		else 
 		{
-			ContentControl		= new ApiBlockLvlSdt(new CBlockLevelSdt(Document, Document))
-			ContentControl.Sdt.SetDefaultTextPr(Document.GetDirectTextPr());
-			paragraphInControl	= ContentControl.Sdt.GetFirstParagraph();
-			if (paragraphInControl.Content.length > 1)
+			let oParaLike;
+			let oRun;
+
+			if ("block" == sType)
 			{
-				paragraphInControl.RemoveFromContent(0, paragraphInControl.Content.length - 1);
-				paragraphInControl.CorrectContent();
+				oCC = new ApiBlockLvlSdt(new CBlockLevelSdt(oDoc, oDoc));
+				oParaLike = oCC.Sdt.GetFirstParagraph();
+				oRun = new ParaRun(oParaLike, false);
 			}
-			paragraphInControl.Add(paraDrawing);
-			ContentControl.Sdt.SetShowingPlcHdr(false);
+			else if ("inline" == sType)
+			{
+				oCC = new ApiInlineLvlSdt(new CInlineLevelSdt());
+				oRun = new ParaRun(null, false);
+				oParaLike = oCC.Sdt;
+			}
+
+			if (oCC)
+			{
+				let oParaDrawing = this.getParaDrawing();
+				oRun.Add_ToContent(0, oParaDrawing);
+				oParaLike.Add_ToContent(0, oRun);
+				oCC.Sdt.SetShowingPlcHdr(false);
+			}
 		}
 
-		if (nType === 1)
-			return ContentControl;
-		else
-			return this;
+		return oCC;
 	};
 	/**
 	 * Inserts a paragraph at the specified position.
@@ -21980,6 +22021,7 @@
 	ApiRange.prototype["SetEndPos"]                  = ApiRange.prototype.SetEndPos;
 	ApiRange.prototype["GetStartPos"]                = ApiRange.prototype.GetStartPos;
 	ApiRange.prototype["GetEndPos"]                  = ApiRange.prototype.GetEndPos;
+	ApiRange.prototype["InsertInContentControl"]	 = ApiRange.prototype.InsertInContentControl;
 	
 	ApiDocument.prototype["GetClassType"]                = ApiDocument.prototype.GetClassType;
 	ApiDocument.prototype["CreateNewHistoryPoint"]       = ApiDocument.prototype.CreateNewHistoryPoint;
