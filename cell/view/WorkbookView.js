@@ -5442,6 +5442,7 @@
 			const doUpdateData = function (_arrAfterPromise) {
 				if (!_arrAfterPromise.length) {
 					callback && callback(true);
+					t.changeUpdateLinks();
 					t.model.handlers.trigger("asc_onStartUpdateExternalReference", false);
 					return;
 				}
@@ -5608,17 +5609,15 @@
 				History.EndTransaction();
 
 				//кроме пересчёта нужно изменить ссылку на лист во всех диапазонах, которые используют данную ссылку
-				for (let j = 0; j < updatedReferences.length; j++) {
+				/*for (let j = 0; j < updatedReferences.length; j++) {
 					for (let n in updatedReferences[j].worksheets) {
 						let prepared = t.model.dependencyFormulas.prepareChangeSheet(updatedReferences[j].worksheets[n].getId());
 						t.model.dependencyFormulas.dependencyFormulas.changeSheet(prepared);
 					}
-				}
+				}*/
 
 				//if update all, reinit timer
-				if (t.model.externalReferences && t.model.externalReferences.length === updatedReferences.length) {
-					t.changeUpdateLinks();
-				}
+				t.changeUpdateLinks();
 
 				//t.model.dependencyFormulas.calcTree();
 				let ws = t.getWorksheet();

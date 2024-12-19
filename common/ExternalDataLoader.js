@@ -112,11 +112,10 @@
 		const nLength = Math.max(arrData.length, this.externalReferences.length);
 		const arrFPromiseGetters = [];
 		for (let i = 0; i < nLength; i += 1) {
-			if (this.isLocalDesktop || (arrData[i] && !arrData[i]["error"])) {
+			if (this.isLocalDesktop || (arrData[i] && !arrData[i]["error"] && !arrData[i].notChangedFile)) {
 				const oPromiseGetter = new CExternalDataPromiseGetter(this.api, this.getExternalReference(i), arrData[i]);
 				arrFPromiseGetters.push(oPromiseGetter.getPromise.bind(oPromiseGetter));
 			}
-			console.log(arrData[i].notChangedFile);
 		}
 		this.doUpdate(arrFPromiseGetters);
 	};
