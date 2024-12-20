@@ -1006,7 +1006,7 @@ $(function () {
 			shortLink = "[1]!A1",
 			shortLinkDefname = "[1]!_s1",
 			shortLinkDefname2 = "'[1]'!_s1",
-			shortLinkDefname3 = "'1'!_s1",
+			shortLinkDefnameWithoutBrackets = "'1'!_s1",
 			externalWs;
 		
 		
@@ -1062,7 +1062,7 @@ $(function () {
 		assert.ok(oParser.parse(true, null, parseResult), "Short link to defname without brackets. isLocal = true. " + shortLinkDefnameLocalWithoutBrackets);
 
 		oParser = new parserFormula(shortLinkDefnameLocalWithoutBrackets2, cellWithFormula, ws);
-		assert.ok(oParser.parse(true, null, parseResult) === false, "Short link to defname without brackets and with single quotes. isLocal = true. " + shortLinkDefnameLocalWithoutBrackets2);
+		assert.ok(oParser.parse(true, null, parseResult), "Short link to defname without brackets and with single quotes. isLocal = true. " + shortLinkDefnameLocalWithoutBrackets2);
 
 		oParser = new parserFormula(shortLink, cellWithFormula, ws);
 		assert.ok(oParser.parse(true, null, parseResult) === false, "Short link from file as local. isLocal = true. " + shortLink);
@@ -1073,8 +1073,8 @@ $(function () {
 		oParser = new parserFormula(shortLinkDefname2, cellWithFormula, ws);
 		assert.ok(oParser.parse(true, null, parseResult) === false, "Short link to defname with quotes from file as local. isLocal = true. " + shortLinkDefname2);
 
-		oParser = new parserFormula(shortLinkDefname3, cellWithFormula, ws);
-		assert.ok(oParser.parse(true, null, parseResult) === false, "Short link to defname with quotes & without brackets from file as local. isLocal = true. " + shortLinkDefname3);
+		oParser = new parserFormula(shortLinkDefnameWithoutBrackets, cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult), "Short link to defname with quotes & without brackets from file as local. isLocal = true. " + shortLinkDefnameWithoutBrackets);
 
 		//remove external reference
 		wb.removeExternalReferences([wb.externalReferences[0].getAscLink()]);

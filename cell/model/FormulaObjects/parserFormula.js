@@ -8087,19 +8087,18 @@ function parserFormula( formula, parent, _ws ) {
 				let externalLink = _3DRefTmp[3];
 				let externalDefName, externalSheetName, receivedDefName, receivedLink, isShortLink;
 
-				// this formula is checked for a short link - the line is split into two parts
-				let receivedFormula = _3DRefTmp[4];
-				let exclamationMarkIndex = typeof (receivedFormula) === "string" ? receivedFormula.lastIndexOf("!") : -1;
-				if (receivedFormula && exclamationMarkIndex !== -1) {
-					// receivedFormula - the received, short formula that needs to be checked for an internal link (they are the same in structure)
+				// this argument contain shortLink object with full formula and two parts of it
+				let receivedShortLink = _3DRefTmp[4];
+				if (receivedShortLink) {
+					// receivedShortLink - the received, short formula that needs to be checked for an internal link (they have the same in structure)
 					// the link can be either to another sheet or to another book - they have the same entry
-					receivedLink = receivedFormula.substring(0, exclamationMarkIndex);
-					receivedDefName = receivedFormula.substring(exclamationMarkIndex + 1);
-					externalSheetName = receivedLink;
+					receivedLink = receivedShortLink.externalLink;
+					externalSheetName = receivedShortLink.externalLink;
+					receivedDefName = receivedShortLink.defname;
 				}
 
 				// This check of short links is performed only when opening/reading, manual input is processed differently
-				if (receivedFormula && !local) {
+				if (receivedShortLink && !local) {
 					let eReference = t.wb.getExternalLinkByIndex(externalLink - 1);
 					if (eReference && eReference.DefinedNames) {
 						for (let i = 0; i < eReference.DefinedNames.length; i++) {
@@ -8157,7 +8156,7 @@ function parserFormula( formula, parent, _ws ) {
 				}
 					
 				// we check whether sheetName is part of the document or is it a short link to external data
-				if (local && !externalLink && receivedFormula) {
+				if (local && !externalLink && receivedShortLink) {
 					// если существует лист с таким же названием, ссылаемся на него, иначе создаем внешнюю ссылку(сокращенную)
 					let innerSheet = t.wb.getWorksheetByName(sheetName);
 					if (!innerSheet) {

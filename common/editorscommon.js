@@ -3024,7 +3024,11 @@
 			return null;
 		}
 
-		return [string, defname];
+		return {
+			fullString: string,
+			externalLink: "",
+			defname: defname
+		}
 	}
 
 	function isExternalShortLinkLocal (string) {
@@ -3033,12 +3037,15 @@
 		if (!string) {
 			return null;
 		}
-		// let stringArray = string.split("!");
 		let shortLinkReg = /[\<\>\?\[\]\\\/\|\*\+\"\:\']/;	// reg contains special characters that are not allowed in the shortLink
 
 		let exclamationMarkIndex = string.indexOf("!");
 		let externalLink = exclamationMarkIndex !== -1 ? string.substring(0, exclamationMarkIndex) : null;
 		let defname = exclamationMarkIndex !== -1 ? string.substring(exclamationMarkIndex + 1) : null;
+
+		if (externalLink && externalLink[0] === "'" && externalLink[externalLink.length - 1] === "'") {
+			externalLink = externalLink.substring(1, externalLink.length - 1);
+		}
 
 		if (!externalLink || !defname || shortLinkReg.test(externalLink) || !AscCommon.rx_defName.test(defname)) {
 			return null;
@@ -3051,7 +3058,11 @@
 			return null;
 		}
 
-		return ["!" + defname, defname];
+		return {
+			fullString: string,
+			externalLink: externalLink,
+			defname: defname
+		}
 	}
 
 	function isValidFileUrl(url) {
@@ -3494,7 +3505,15 @@
 			}
 		}
 
+		/* shortlink return obj {fullstring, externalLink, defname} */
 		let shortLink = isExternalShortLink(subSTR) || (!external && isExternalShortLinkLocal(subSTR));
+
+		if (shortLink) {
+			this.pCurrPos += shortLink.fullString.length + externalLength;
+			this.operand_str = shortLink.defname;
+			return [true, null, null, external, shortLink];
+		}
+
 		let match = XRegExp.exec(subSTR, rx_ref3D_quoted) || XRegExp.exec(subSTR, rx_ref3D_non_quoted);
 		
 		if(!match && support_digital_start) {
@@ -3506,12 +3525,7 @@
 			this.pCurrPos += match[0].length + externalLength;
 			this.operand_str = match[1];
 
-			return [true, match["name_from"] ? match["name_from"].replace(/''/g, "'") : null, match["name_to"] ? match["name_to"].replace(/''/g, "'") : null, external, shortLink ? subSTR : null];
-		} else if (shortLink) {
-			// this.pCurrPos += shortLink[0].length + externalLength;
-			this.pCurrPos += subSTR.length + externalLength;
-			this.operand_str = shortLink[1];
-			return [true, null, null, external, subSTR];
+			return [true, match["name_from"] ? match["name_from"].replace(/''/g, "'") : null, match["name_to"] ? match["name_to"].replace(/''/g, "'") : null, external];
 		}
 		return [false, null, null, external, externalLength];
 	};
