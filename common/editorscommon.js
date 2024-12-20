@@ -815,27 +815,37 @@
 		let contentTypes = contentTypesBytes ? AscCommon.UTF8ArrayToString(contentTypesBytes, 0, contentTypesBytes.length) : "";
 		jsZlib.close();
 
-		if (-1 !== contentTypes.indexOf("application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml") ||
+		let isWord = -1 !== contentTypes.indexOf("application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml") ||
 			-1 !== contentTypes.indexOf("application/vnd.openxmlformats-officedocument.wordprocessingml.template.main+xml") ||
 			-1 !== contentTypes.indexOf("application/vnd.ms-word.document.macroEnabled.main+xml") ||
 			-1 !== contentTypes.indexOf("application/vnd.ms-word.template.macroEnabledTemplate.main+xml") ||
 			-1 !== contentTypes.indexOf("application/vnd.openxmlformats-officedocument.wordprocessingml.document.oform") ||
-			-1 !== contentTypes.indexOf("application/vnd.openxmlformats-officedocument.wordprocessingml.document.docxf")) {
-			return AscCommon.c_oEditorId.Word;
-		} else if (-1 !== contentTypes.indexOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml") ||
+			-1 !== contentTypes.indexOf("application/vnd.openxmlformats-officedocument.wordprocessingml.document.docxf");
+		let isExcel = -1 !== contentTypes.indexOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml") ||
 			-1 !== contentTypes.indexOf("application/vnd.openxmlformats-officedocument.spreadsheetml.template.main+xml") ||
 			-1 !== contentTypes.indexOf("application/vnd.ms-excel.sheet.macroEnabled.main+xml") ||
 			-1 !== contentTypes.indexOf("application/vnd.ms-excel.template.macroEnabled.main+xml") ||
-			-1 !== contentTypes.indexOf("application/vnd.ms-excel.sheet.binary.macroEnabled.main")) {
-			return AscCommon.c_oEditorId.Spreadsheet;
-		} else if (-1 !== contentTypes.indexOf(
-				"application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml") ||
+			-1 !== contentTypes.indexOf("application/vnd.ms-excel.sheet.binary.macroEnabled.main");
+		let isSlide = -1 !== contentTypes.indexOf("application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml") ||
 			-1 !== contentTypes.indexOf("application/vnd.openxmlformats-officedocument.presentationml.slideshow.main+xml") ||
 			-1 !== contentTypes.indexOf("application/vnd.openxmlformats-officedocument.presentationml.template.main+xml") ||
 			-1 !== contentTypes.indexOf("application/vnd.ms-powerpoint.presentation.macroEnabled.main+xml") ||
 			-1 !== contentTypes.indexOf("application/vnd.ms-powerpoint.slideshow.macroEnabled.main+xml") ||
-			-1 !== contentTypes.indexOf("application/vnd.ms-powerpoint.template.macroEnabled.main+xml")) {
+			-1 !== contentTypes.indexOf("application/vnd.ms-powerpoint.template.macroEnabled.main+xml");
+		let isDraw = -1 !== contentTypes.indexOf("application/vnd.ms-visio.drawing.main+xml") ||
+			-1 !== contentTypes.indexOf("application/vnd.ms-visio.stencil.main+xml") ||
+			-1 !== contentTypes.indexOf("application/vnd.ms-visio.template.main+xml") ||
+			-1 !== contentTypes.indexOf("application/vnd.ms-visio.drawing.macroEnabled.main+xml") ||
+			-1 !== contentTypes.indexOf("application/vnd.ms-visio.stencil.macroEnabled.main+xml") ||
+			-1 !== contentTypes.indexOf("application/vnd.ms-visio.template.macroEnabled.main+xml");
+		if (isWord) {
+			return AscCommon.c_oEditorId.Word;
+		} else if (isExcel) {
+			return AscCommon.c_oEditorId.Spreadsheet;
+		} else if (isSlide) {
 			return AscCommon.c_oEditorId.Presentation;
+		} else if (isDraw) {
+			return AscCommon.c_oEditorId.Draw;
 		} else {
 			return null;
 		}
@@ -952,12 +962,6 @@
 	function sendCommand(editor, fCallback, rdata, dataContainer)
 	{
 		//json не должен превышать размера 2097152, иначе при его чтении будет exception
-		var docConnectionId = editor.CoAuthoringApi.getDocId();
-		if (docConnectionId && docConnectionId !== rdata["id"])
-		{
-			//на случай если поменялся documentId в Version History
-			rdata['docconnectionid'] = docConnectionId;
-		}
 		if (null == rdata["savetype"])
 		{
 			editor.CoAuthoringApi.openDocument(rdata);
@@ -1057,6 +1061,8 @@
 			case c_oAscServerError.ConvertNEED_PARAMS :
 			case c_oAscServerError.ConvertUnknownFormat :
 			case c_oAscServerError.ConvertReadFile :
+			case c_oAscServerError.ConvertTemporaty :
+			case c_oAscServerError.ConvertDetect :
 			case c_oAscServerError.Convert :
 				nRes =
 					AscCommon.c_oAscAdvancedOptionsAction.Save === nAction ? Asc.c_oAscError.ID.ConvertationSaveError :
@@ -1675,6 +1681,8 @@
 		ConvertPASSWORD:          -91,
 		ConvertICU:               -92,
 		ConvertLIMITS:            -93,
+		ConvertTemporaty:         -94,
+		ConvertDetect:            -95,
 		ConvertDeadLetter:        -99,
 
 		Upload:              -100,
@@ -1904,7 +1912,24 @@
 			case c_oAscFileType.OTP:
 				return 'otp';
 				break;
-
+			case c_oAscFileType.VSDX:
+				return 'vsdx';
+				break;
+			case c_oAscFileType.VSSX:
+				return 'vssx';
+				break;
+			case c_oAscFileType.VSTX:
+				return 'vstx';
+				break;
+			case c_oAscFileType.VSDM:
+				return 'vsdm';
+				break;
+			case c_oAscFileType.VSSM:
+				return 'vssm';
+				break;
+			case c_oAscFileType.VSTM:
+				return 'vstm';
+				break;
 			case c_oAscFileType.IMG:
 				return 'zip';
 				break;
@@ -2015,7 +2040,18 @@
 				return c_oAscFileType.FODP;
 			case 'otp':
 				return c_oAscFileType.OTP;
-
+			case 'vsdx':
+				return c_oAscFileType.VSDX;
+			case 'vssx':
+				return c_oAscFileType.VSSX;
+			case 'vstx':
+				return c_oAscFileType.VSTX;
+			case 'vsdm':
+				return c_oAscFileType.VSDM;
+			case 'vssm':
+				return c_oAscFileType.VSSM;
+			case 'vstm':
+				return c_oAscFileType.VSTM;
 			case 'xlsx':
 				return c_oAscFileType.XLSX;
 			case 'xls':
@@ -2131,7 +2167,7 @@
 
 							if (data["subType"] === "connector")
 							{
-								window.g_asc_plugins.externalConnectorMessage(data["data"]);
+								window.g_asc_plugins.externalConnectorMessage(data["data"], event.origin);
 								return;
 							}
 
@@ -2211,7 +2247,7 @@
 							callback(e);
 					}
 					else
-						callback(Asc.c_oAscError.ID.Unknown);
+					callback(Asc.c_oAscError.ID.Unknown);
 				}
 			});
 
@@ -2219,13 +2255,19 @@
 				let oViewer = Asc.editor.getDocumentRenderer();
 				let oDoc = oViewer.doc;
 				let oActionsQueue = oDoc.GetActionsQueue();
+
+				function cancelFileDialog() {
+					AscCommon.global_mouseEvent.UnLockMouse();
+					oActionsQueue.Continue();
+				}
+
 				if (oActionsQueue.IsInProgress()) {
-					Asc.editor.sendEvent("asc_onOpenFilePdfForm", fileName.click.bind(fileName), oActionsQueue.Continue.bind(oActionsQueue));
+					Asc.editor.sendEvent("asc_onOpenFilePdfForm", fileName.click.bind(fileName), cancelFileDialog);
 				}
 				else 
-					fileName.click();
-			}
-			else
+			fileName.click();
+		}
+		else
 				fileName.click();
 		}
 		else
@@ -2914,10 +2956,14 @@
 		//var regExpExceptExternalLink = /('?[a-zA-Z0-9\s\[\]\.]{1,99})?'?!?\$?[a-zA-Z]{1,3}\$?[0-9]{1,7}(:\$?[a-zA-Z]{1,3}\$?[0-9]{1,7})?/;
 
 		//'path/[name]Sheet1'!A1
-		var path, name, startLink, i;
+		let path, name, startLink, i, exclamationMarkIndex;
 		if (url && url.indexOf("[") !== -1) {
 			//todo check on other separators, exm -> SUM(A2 '[new.xlsx]Sheet1'!A1 '[new.xlsx]Sheet1'!A2)
 			for (let j = 0; j < url.length; j++) {
+				if (!exclamationMarkIndex && url[j] === "!") {
+					exclamationMarkIndex = j;
+				}
+				
 				if (url[j] === FormulaSeparators.functionArgumentSeparator || url[j] === FormulaSeparators.functionArgumentSeparatorDef || url[j] === ";")  {
 					url = url.substring(0, j);
 					break;
@@ -2926,7 +2972,7 @@
 
 
 			if (url && url[0] === "'"/*url.match(/('[^\[]*\[[^\]]+\]([^'])+'!)/g)*/) {
-				for (i = url.length - 1; i >= 0; i--) {
+				for (i = exclamationMarkIndex ? exclamationMarkIndex : url.length - 1; i >= 0; i--) {
 					if (url[i] === "!" && url[i - 1] === "'") {
 						startLink = true;
 						i--;
@@ -3749,7 +3795,6 @@
 		{
 			this._reset();
 		}
-
 		let subSTR = formula.substring(start_pos),
 		match = XRegExp.exec(subSTR, local ? rx_table_local : rx_table);
 
@@ -3760,6 +3805,62 @@
 			return match;
 		}
 
+		return false;
+	};
+	parserHelper.prototype.isPivot = function (formula, start_pos, local, opt_namesList)
+	{
+		if (this instanceof parserHelper)
+		{
+			this._reset();
+		}
+		// todo если строка подстрока другой
+		const subSTR = formula.substring(start_pos);
+		const fieldName = opt_namesList[0][0];
+		const itemNames = opt_namesList[1];
+		const fullPatterns = itemNames.map(function(name) {
+			return '^' + fieldName + '\\s*\\[\\s*(' + name + ')\\s*\\]'
+		});
+		const fullRegs = fullPatterns.map(function(pattern) {
+			return new RegExp(pattern, 'i');
+		});
+		for (let i = 0; i < fullRegs.length; i += 1) {
+			const match = fullRegs[i].exec(subSTR);
+			if (match !== null) {
+				this.operand_str = match[0];
+				this.pCurrPos += match[0].length;
+				return [fieldName, match[1]];
+			}
+		}
+		const shortPatterns = itemNames.map(function(name) {
+			return '^(' + name + ')(?:\\W|$)'
+		});
+		const shortRegs = shortPatterns.map(function(pattern) {
+			return new RegExp(pattern, 'i');
+		});
+		for (let i = 0; i < shortRegs.length; i += 1) {
+			const match = shortRegs[i].exec(subSTR);
+			if (match !== null) {
+				this.operand_str = match[1];
+				this.pCurrPos += match[1].length;
+				return [null, match[1]];
+			}
+		}
+		return false;
+	};
+	parserHelper.prototype.isPivotRaw = function (formula, start_pos, local)
+	{
+		if (this instanceof parserHelper)
+		{
+			this._reset();
+		}
+		const subSTR = formula.substring(start_pos);
+		const reg = /^(\w+|(?:\'.+?\'(?!\')))\[(\w+|(?:\'.+?\'(?!\')))\]/;
+		const match = reg.exec(subSTR);
+		if (match !== null && match[1] && match[2]) {
+			this.operand_str = match[0];
+			this.pCurrPos += match[0].length;
+			return [match[1], match[2]];
+		}
 		return false;
 	};
 // Парсим ссылку на диапазон в листе
@@ -3988,7 +4089,7 @@
 					if (sheetModel)
 					{
 						range = AscCommonExcel.g_oRangeCache.getAscRange(result.range);
-					}
+		}
 				}
 
 				if (!sheetModel) {
@@ -4358,7 +4459,7 @@
 				oLogicDocument.Document_UpdateInterfaceState(false);
 			}
 		}
-		let oCustomProperties = oApi.getCustomProperties();
+		let oCustomProperties = oApi.getCustomProperties && oApi.getCustomProperties();
 		if(oCustomProperties && oCustomProperties.Lock === this)
 		{
 			oApi.sendEvent("asc_onCustomPropertiesLocked", this.Is_Locked());
@@ -4431,13 +4532,17 @@
 	{
 		this.m_aChanges.length = 0;
 	};
-	CContentChanges.prototype.Check = function (Type, Pos)
+	CContentChanges.prototype.GetPos = function(pos)
+	{
+		return this.Check(AscCommon.contentchanges_Remove, pos, true);
+	};
+	CContentChanges.prototype.Check = function (Type, Pos, checkPos)
 	{
 		var CurPos = Pos;
 		var Count = this.m_aChanges.length;
 		for (var Index = 0; Index < Count; Index++)
 		{
-			var NewPos = this.m_aChanges[Index].Check_Changes(Type, CurPos);
+			var NewPos = this.m_aChanges[Index].Check_Changes(Type, CurPos, checkPos);
 			if (false === NewPos)
 				return false;
 
@@ -4490,20 +4595,23 @@
 		this.m_pData.Binary.Pos = Binary_Pos;
 		this.m_pData.Binary.Len = Binary_Len;
 	};
-	CContentChangesElement.prototype.Check_Changes = function (Type, Pos)
+	CContentChangesElement.prototype.Check_Changes = function (Type, Pos, checkPos)
 	{
 		var CurPos = Pos;
-		if (contentchanges_Add === Type)
+		if (AscCommon.contentchanges_Add === Type)
 		{
 			for (var Index = 0; Index < this.m_nCount; Index++)
 			{
 				if (false !== this.m_aPositions[Index])
 				{
 					if (CurPos <= this.m_aPositions[Index])
-						this.m_aPositions[Index]++;
+					{
+						if (!checkPos)
+							this.m_aPositions[Index]++;
+					}
 					else
 					{
-						if (contentchanges_Add === this.m_nType)
+						if (AscCommon.contentchanges_Add === this.m_nType)
 							CurPos++;
 						else //if ( contentchanges_Remove === this.m_nType )
 							CurPos--;
@@ -4515,29 +4623,35 @@
 		{
 			for (var Index = 0; Index < this.m_nCount; Index++)
 			{
-				if (false !== this.m_aPositions[Index])
+				if (false === this.m_aPositions[Index])
+					continue;
+				
+				if (CurPos < this.m_aPositions[Index])
 				{
-					if (CurPos < this.m_aPositions[Index])
+					if (!checkPos)
 						this.m_aPositions[Index]--;
-					else if (CurPos > this.m_aPositions[Index])
+				}
+				else if (CurPos > this.m_aPositions[Index])
+				{
+					if (AscCommon.contentchanges_Add === this.m_nType)
+						CurPos++;
+					else //if ( contentchanges_Remove === this.m_nType )
+						CurPos--;
+				}
+				else //if ( CurPos === this.m_aPositions[Index] )
+				{
+					if (AscCommon.contentchanges_Remove === this.m_nType)
 					{
-						if (contentchanges_Add === this.m_nType)
-							CurPos++;
-						else //if ( contentchanges_Remove === this.m_nType )
-							CurPos--;
-					}
-					else //if ( CurPos === this.m_aPositions[Index] )
-					{
-						if (AscCommon.contentchanges_Remove === this.m_nType)
-						{
-							// Отмечаем, что действия совпали
+						// Мы попали в позицию, удаленную другим пользователем
+						// Если наше действие удаляем тоже самое место, то помечаем, что удалять ничего не нужно
+						if (!checkPos)
 							this.m_aPositions[Index] = false;
-							return false;
-						}
-						else
-						{
-							CurPos++;
-						}
+						
+						return false;
+					}
+					else
+					{
+						CurPos++;
 					}
 				}
 			}
@@ -10650,6 +10764,44 @@
 		change.Redo();
 	}
 
+	function mockLogicDoc(doc){
+		doc.Get_PageLimits = function(PageAbs) {
+			return {X: 0, Y: 0, XLimit: Page_Width, YLimit: Page_Height};
+		};
+		doc.Get_PageFields = function (PageAbs, isInHdrFtr) {
+			return {X: 0, Y: 0, XLimit: 2000, YLimit: 2000};
+		};
+
+		doc.IsTrackRevisions = function() {
+			return false;
+		};
+
+		doc.IsDocumentEditor = function() {
+			return false;
+		};
+		doc.Spelling = {
+			AddParagraphToCheck: function(Para) {}
+		};
+
+		doc.IsSplitPageBreakAndParaMark = function () {
+			return false;
+		};
+		doc.IsDoNotExpandShiftReturn = function () {
+			return false;
+		};
+
+		doc.GetApi = function() {
+			return Asc.editor;
+		};
+
+		doc.GetDrawingDocument = function() {
+			return Asc.editor.getDrawingDocument();
+		};
+
+		doc.SearchEngine = {
+			Selection: []
+		};
+	}
 	/**
 	 * Функция сравнивает две строки (они могут быть не заданы)
 	 * @param s1 {?string}
@@ -11563,6 +11715,13 @@
 			|| (0x202A <= nCharCode && nCharCode <= 0x202F)
 			|| (0x2670 <= nCharCode && nCharCode <= 0x2671)
 			|| (0xFB1D <= nCharCode && nCharCode <= 0xFB4F));
+	}
+	
+	function IsGeorgianScript(charCode)
+	{
+		return ((0x10A0 <= charCode && charCode <= 0x10FF)
+			|| (0x2D00 <= charCode && charCode <= 0x2D2F)
+			|| (0x1C90 <= charCode && charCode <= 0x1CBF));
 	}
 
 	var g_oIdCounter = new CIdCounter();
@@ -14620,8 +14779,25 @@
 	}
 	registerServiceWorker();
 
+	function consoleLog(val) {
+		// console.log(val);
+		const showMessages = false;
+
+		if (!showMessages) {
+			return;
+		}
+
+		// see v8 arguments leak - performance loss
+		// console.log.apply(console, arguments);
+
+		for (let i = 0; i < arguments.length; i++) {
+			console.log(arguments[i]);
+		}
+	}
+
 	//------------------------------------------------------------export---------------------------------------------------
 	window['AscCommon'] = window['AscCommon'] || {};
+	window["AscCommon"].consoleLog = consoleLog;
 	window["AscCommon"].getSockJs = getSockJs;
 	window["AscCommon"].getSocketIO = getSocketIO;
 	window["AscCommon"].getBaseUrl = getBaseUrl;
@@ -14714,6 +14890,7 @@
 	window["AscCommon"].CompareStrings = CompareStrings;
 	window["AscCommon"].IsSupportAscFeature = IsSupportAscFeature;
 	window["AscCommon"].IsSupportOFormFeature = IsSupportOFormFeature;
+	window["AscCommon"].mockLogicDoc = mockLogicDoc;
 
 	window["AscCommon"].loadSdk = loadSdk;
     window["AscCommon"].loadScript = loadScript;
@@ -14727,6 +14904,7 @@
 	window["AscCommon"].isEastAsianScript = isEastAsianScript;
 	window["AscCommon"].IsEastAsianFont = IsEastAsianFont;
 	window["AscCommon"].IsComplexScript = IsComplexScript;
+	window["AscCommon"].IsGeorgianScript = IsGeorgianScript;
 	window["AscCommon"].CMathTrack = CMathTrack;
 	window["AscCommon"].CPolygon = CPolygon;
 	window['AscCommon'].CDrawingCollaborativeTargetBase = CDrawingCollaborativeTargetBase;

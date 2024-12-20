@@ -200,7 +200,9 @@
 
         this.fillObject(oLine);
 
-        let aFillColor = this.GetFillColor();
+        let aStrokeColor    = this.GetStrokeColor();
+        let aFillColor      = this.GetFillColor();
+        let aLinePoints     = this.GetLinePoints();
 
         oLine._apIdx = this._apIdx;
         oLine._originView = this._originView;
@@ -208,14 +210,14 @@
         oLine.SetAuthor(this.GetAuthor());
         oLine.SetModDate(this.GetModDate());
         oLine.SetCreationDate(this.GetCreationDate());
-        oLine.SetStrokeColor(this.GetStrokeColor().slice());
+        aStrokeColor && oLine.SetStrokeColor(aStrokeColor.slice());
         oLine.SetWidth(this.GetWidth());
         oLine.SetLineStart(this.GetLineStart());
         oLine.SetLineEnd(this.GetLineEnd());
         oLine.SetContents(this.GetContents());
-        oLine.SetFillColor(aFillColor.slice());
+        aFillColor && oLine.SetFillColor(aFillColor.slice());
         oLine.SetOpacity(this.GetOpacity());
-        oLine.SetLinePoints(this.GetLinePoints().slice());
+        aLinePoints && oLine.SetLinePoints(aLinePoints.slice());
         oLine.recalcInfo.recalculateGeometry = true;
         oLine.recalculate();
 
@@ -307,6 +309,8 @@
         this.SetWasChanged(true);
     };
     CAnnotationLine.prototype.SetStrokeColor = function(aColor) {
+        AscCommon.History.Add(new CChangesPDFAnnotStroke(this, this.GetStrokeColor(), aColor));
+
         this._strokeColor = aColor;
 
         let oRGB    = this.GetRGBColor(aColor);
@@ -454,14 +458,6 @@
         else {
             AscPDF.CAnnotationBase.prototype.SetContents.call(this, contents);
         }
-    };
-    CAnnotationLine.prototype.SetReplies = function(aReplies) {
-        if (!this.IsUseContentAsComment()) {
-            AscPDF.CAnnotationFreeText.prototype.SetReplies.call(this, aReplies);
-        }
-        else {
-            AscPDF.CAnnotationBase.prototype.SetReplies.call(this, aReplies);
-        }  
     };
     CAnnotationLine.prototype.GetAscCommentData = function() {
         if (!this.IsUseContentAsComment()) {

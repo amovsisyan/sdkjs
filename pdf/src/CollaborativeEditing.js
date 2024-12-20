@@ -42,11 +42,22 @@ function CPDFCollaborativeEditing(oDoc) {
     this.m_aSkipContentControlsOnCheckEditingLock = {};
     this.m_oLogicDocument = oDoc;
     this.m_oSelectedObjects = {};
+    this.m_aEndLoadCallbacks = [];
 }
 
 CPDFCollaborativeEditing.prototype = Object.create(AscCommon.CWordCollaborativeEditing.prototype);
 CPDFCollaborativeEditing.prototype.constructor = CPDFCollaborativeEditing;
 
+CPDFCollaborativeEditing.prototype.CheckWaitingImages = function (aImages) {
+    if (aImages.length !== 0) {
+        this.waitingImagesForLoad = true;
+    }
+};
+CPDFCollaborativeEditing.prototype.SendImagesCallback = function (aImages) {
+    this.waitingImagesForLoad = false;
+    let oApi = Asc.editor || Asc['editor'];
+    oApi.pre_Save(aImages);
+};
 CPDFCollaborativeEditing.prototype.Add_ForeignSelectedObject = function(UserId, oObject, UserShortId) {
     if (!this.m_oSelectedObjects[UserId]) {
         this.m_oSelectedObjects[UserId] = [];
@@ -96,6 +107,19 @@ CPDFCollaborativeEditing.prototype.Update_ForeignSelectedObjectsLabelsPositions 
         }
     }
 };
+CPDFCollaborativeEditing.prototype.private_LockByMe = function() {
+	for (let nIndex = 0, nCount = this.m_aCheckLocks.length; nIndex < nCount; ++nIndex) {
+		let oItem = this.m_aCheckLocks[nIndex];
+        
+		if (true !== oItem && false !== oItem) {
+			let oClass = AscCommon.g_oTableId.Get_ById(oItem["guid"]);
+			if (oClass) {
+				oClass.Lock.Set_Type(AscCommon.c_oAscLockTypes.kLockTypeMine);
+				this.Add_Unlock2(oClass);
+			}
+		}
+	}
+};
 CPDFCollaborativeEditing.prototype.GetDocumentPositionBinary = function(oWriter, PosInfo) {
     if (!PosInfo)
         return '';
@@ -111,14 +135,16 @@ CPDFCollaborativeEditing.prototype.GetDocument = function() {
 CPDFCollaborativeEditing.prototype.Send_Changes = function(IsUserSave, AdditionalInfo, IsUpdateInterface, isAfterAskSave) {
 	if (!this.canSendChanges())
 		return;
-    // Пересчитываем позиции
-    this.Refresh_DCChanges();
-
-    let oDoc        = this.GetDocument();
-    let oHistory    = oDoc.History;
+	
+	let oDoc        = this.GetDocument();
+	let oHistory    = oDoc.History;
 	
 	let localHistory = AscCommon.History;
 	AscCommon.History = oHistory;
+	
+	// Пересчитываем позиции
+	this.Refresh_DCChanges();
+
 	
 	AscCommon.DocumentEditorApi.prototype.asc_Save.apply(this, arguments);
 	
@@ -222,8 +248,7 @@ CPDFCollaborativeEditing.prototype.Send_Changes = function(IsUserSave, Additiona
     // Свои локи не проверяем. Когда все пользователи выходят, происходит перерисовка и свои локи уже не рисуются.
     if (0 !== UnlockCount || 1 !== this.m_nUseType) {
         // Перерисовываем документ (для обновления локов)
-        editor.WordControl.m_oLogicDocument.DrawingDocument.ClearCachePages();
-        editor.WordControl.m_oLogicDocument.DrawingDocument.FirePaint();
+        editor.getDocumentRenderer().paint();
     }
 
     editor.WordControl.m_oLogicDocument.getCompositeInput().checkState();
@@ -247,9 +272,10 @@ CPDFCollaborativeEditing.prototype.OnEnd_Load_Objects = function()
 	this.m_oLogicDocument.RecalculateByChanges(this.CoHistory.GetAllChanges(), this.m_nRecalcIndexStart, this.m_nRecalcIndexEnd, false, undefined);
 	this.m_oLogicDocument.UpdateTracks();
 	
-	let oform = this.m_oLogicDocument.GetOFormDocument();
-	if (oform)
-		oform.onEndLoadChanges();
+    this.m_aEndLoadCallbacks.forEach(function(callback) {
+        callback();
+    });
+    this.m_aEndLoadCallbacks.length = 0;
 
     editor.sync_EndAction(Asc.c_oAscAsyncActionType.BlockInteraction, Asc.c_oAscAsyncAction.ApplyChanges);
 };
@@ -261,13 +287,16 @@ CPDFCollaborativeEditing.prototype.canSendChanges = function(){
     return oApi && oApi.canSendChanges() && !oActionQueue.IsInProgress();
 };
 CPDFCollaborativeEditing.prototype.Apply_Changes = function(fEndCallBack) {
-    if (this.m_aChanges.length > 0) {
-        this.GetDocument().currInkInDrawingProcess = null; // останавливаем ink рисование
-        AscCommon.CCollaborativeEditingBase.prototype.Apply_Changes.call(this, fEndCallBack);
-    } else {
-		if (fEndCallBack)
-			fEndCallBack();
-	}
+	if (!this.m_aChanges.length)
+		return fEndCallBack ? fEndCallBack() : null;
+
+	let docHistory = this.GetDocument().History;
+	docHistory.TurnOff();
+	
+	this.GetDocument().currInkInDrawingProcess = null; // останавливаем ink рисование
+	AscCommon.CCollaborativeEditingBase.prototype.Apply_Changes.call(this, fEndCallBack);
+	
+	docHistory.TurnOn();
 };
 CPDFCollaborativeEditing.prototype.OnEnd_ReadForeignChanges = function() {
 	AscCommon.CCollaborativeEditingBase.prototype.OnEnd_ReadForeignChanges.apply(this, arguments);

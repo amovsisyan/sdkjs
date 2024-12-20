@@ -168,7 +168,7 @@
             x: 0,
             y: 0
         }
-        this._originShiftView = { // смещение, когда значение формы применено (т.е. форма не активна)
+        this._oldShiftView = { // смещение, когда значение формы применено (т.е. форма не активна)
             x: 0,
             y: 0
         }
@@ -196,6 +196,7 @@
 		this.compositeInput = null;
 		this.compositeReplaceCount = 0;
 
+        this.Lock = new AscCommon.CLock();
         this.SetRect(aRect);
     }
 
@@ -212,10 +213,21 @@
         return true;
     };
     CBaseField.prototype.SetApIdx = function(nIdx) {
-        this.GetDocument().UpdateApIdx(nIdx);
         this._apIdx = nIdx;
     };
     CBaseField.prototype.GetApIdx = function() {
+        if (-1 == this._apIdx) {
+            if (undefined == this.GetId()) {
+                return -1;
+            }
+            else {
+                let nApIdx = Number(this.GetId().replace("_", ""));
+                if (!isNaN(nApIdx)) {
+                    return nApIdx;
+                }
+            }
+        }
+
         return this._apIdx;
     };
 
@@ -237,6 +249,7 @@
 	CBaseField.prototype.checkFonts = function() {
 		return this._doc && 1 === this._doc.defaultFontsLoaded;
 	};
+	CBaseField.prototype.getAllRasterImages = function(images) {};
     /**
 	 * Invokes only on open forms.
 	 * @memberof CBaseField
@@ -706,19 +719,23 @@
     /**
      * Does the actions setted for specifed trigger type.
 	 * @memberof CBaseField
-     * @param {number} nType - trigger type (FORMS_TRIGGERS_TYPES)
 	 * @typeofeditors ["PDF"]
      * @returns {canvas}
 	 */
-    CBaseField.prototype.AddActionsToQueue = function(nType) {
+    CBaseField.prototype.AddActionsToQueue = function() {
+        let oThis           = this;
         let oDoc            = this.GetDocument();
         let oActionsQueue   = oDoc.GetActionsQueue();
-        let oTrigger        = this.GetTrigger(nType);
+
+        Object.values(arguments).forEach(function(type) {
+            let oTrigger = oThis.GetTrigger(type);
         
-        if (oTrigger && oTrigger.Actions.length > 0 && false == AscCommon.History.UndoRedoInProgress) {
-            oActionsQueue.AddActions(oTrigger.Actions);
-            oActionsQueue.Start();
-        }
+            if (oTrigger && oTrigger.Actions.length > 0 && false == AscCommon.History.UndoRedoInProgress) {
+                oActionsQueue.AddActions(oTrigger.Actions);
+            }
+        })
+        
+        oActionsQueue.Start();
     };
 
     CBaseField.prototype.DrawHighlight = function(oCtx) {
@@ -1201,7 +1218,12 @@
     CBaseField.prototype.DrawSelected = function() {
         return;
     };
-    
+    CBaseField.prototype.SetParentPage = function(oParent) {
+        this.parentPage = oParent;
+    };
+    CBaseField.prototype.GetParentPage = function() {
+        return this.parentPage;
+    };
     CBaseField.prototype.Get_Id = function() {
         return this._id;
     };
@@ -1495,13 +1517,13 @@
 	 * @typedef {"MouseUp" | "MouseDown" | "MouseEnter" | "MouseExit" | "OnFocus" | "OnBlur" | "Keystroke" | "Validate" | "Calculate" | "Format"} cTrigger
 	 * For a list box, use the Keystroke trigger for the Selection Change event.
      */
-    CBaseField.prototype.RevertContentViewToOriginal = function() {
+    CBaseField.prototype.RevertContentView = function() {
         this.content.ResetShiftView();
-        this._curShiftView.x = this._originShiftView.x;
-        this._curShiftView.y = this._originShiftView.y;
+        this._curShiftView.x = this._oldShiftView.x;
+        this._curShiftView.y = this._oldShiftView.y;
 
         this._bAutoShiftContentView = false;
-        this.content.ShiftView(this._originShiftView.x, this._originShiftView.y);
+        this.content.ShiftView(this._oldShiftView.x, this._oldShiftView.y);
 
         if (this._scrollInfo) {
             let nMaxShiftY                  = this._scrollInfo.scroll.maxScrollY;
@@ -1514,8 +1536,8 @@
         return this._isWidget;
     };
     CBaseField.prototype.IsNeedRevertShiftView = function() {
-        if (this._curShiftView.y != this._originShiftView.y ||
-            this._curShiftView.x != this._originShiftView.x)
+        if (this._curShiftView.y != this._oldShiftView.y ||
+            this._curShiftView.x != this._oldShiftView.x)
             return true;
     };
     CBaseField.prototype.GetBordersWidth = function() {
@@ -1955,9 +1977,6 @@
     // common triggers
     CBaseField.prototype.onMouseEnter = function() {
         this.AddActionsToQueue(AscPDF.FORMS_TRIGGERS_TYPES.MouseEnter);
-
-        let oDoc = this.GetDocument();
-        
     };
     CBaseField.prototype.onMouseExit = function() {
         this.AddActionsToQueue(AscPDF.FORMS_TRIGGERS_TYPES.MouseExit);
@@ -2287,6 +2306,25 @@
         let nEndPos = memory.GetCurPosition();
         memory.Seek(nStartPos);
         memory.WriteLong(nFlags);
+        memory.Seek(nEndPos);
+    };
+    CBaseField.prototype.WriteRenderToBinary = function(memory) {
+        // пока только для text, combobox
+        if (false == [AscPDF.FIELD_TYPES.text, AscPDF.FIELD_TYPES.combobox, AscPDF.FIELD_TYPES.listbox].includes(this.GetType())) {
+            return;
+        }
+
+        // тут будет длина комманд
+        let nStartPos = memory.GetCurPosition();
+        memory.Skip(4);
+
+        let oContentToDraw = this.GetTrigger(AscPDF.FORMS_TRIGGERS_TYPES.Format) ? this.contentFormat : this.content;
+        oContentToDraw.Draw(0, memory.docRenderer);
+
+        // запись длины комманд
+        let nEndPos = memory.GetCurPosition();
+        memory.Seek(nStartPos);
+        memory.WriteLong(nEndPos - nStartPos);
         memory.Seek(nEndPos);
     };
 

@@ -510,7 +510,7 @@ function FrozenPlace(ws, type) {
 			}
 			break;
 		}
-		return scroll;
+		return _this.worksheet.getRightToLeft() ? -scroll : scroll;
 	};
 	
 	_this.clip = function(canvas, rect) {
@@ -542,7 +542,7 @@ function FrozenPlace(ws, type) {
 
 		var oClipRect;
 		if(!oRect) {
-			oClipRect = _this.worksheet.rangeToRectRel(_this.range, 0);
+			oClipRect = _this.worksheet.rangeToRectRel(_this.range, 0, true);
 		}
 		else {
 			var oT = canvas.shapeCtx.m_oCoordTransform;
@@ -580,7 +580,7 @@ function FrozenPlace(ws, type) {
 		}
 		var canvas = _this.worksheet.objectRender.getDrawingCanvas();
 		_this.setTransform(canvas.shapeCtx, canvas.shapeOverlayCtx, canvas.autoShapeTrack);
-		_this.clip(canvas.shapeCtx, _this.worksheet.rangeToRectRel(oClipRange, 0));
+		_this.clip(canvas.shapeCtx, _this.worksheet.rangeToRectRel(oClipRange, 0, true));
 		canvas.shapeCtx.updatedRect = _this.worksheet.rangeToRectAbs(oClipRange, 3);
 		//For debug
 		// canvas.shapeCtx.p_color(0, 0, 0, 255);
@@ -629,10 +629,10 @@ function FrozenPlace(ws, type) {
 			}
 			autoShapeTrack.m_oOverlay.CheckPoint1(x - nW, top);
 			autoShapeTrack.m_oOverlay.CheckPoint2(x + nW, bottom);
-			autoShapeTrack.drawImage(sFrozenImageRotUrl, x, top, nW, bottom);
+			autoShapeTrack.drawImage(sFrozenImageRotUrl, _this.worksheet.checkRtl(x), top, nW, bottom);
 		}
 		else {
-			autoShapeTrack.m_oOverlay.DrawFrozenPlaceVerLine(x, top, bottom);
+			autoShapeTrack.m_oOverlay.DrawFrozenPlaceVerLine(_this.worksheet.checkRtl(x), top, bottom);
 		}
 	};
 	_this.drawSelection = function(drawingDocument, shapeCtx, shapeOverlayCtx, autoShapeTrack, trackOverlay) {
@@ -640,7 +640,7 @@ function FrozenPlace(ws, type) {
 		var ctx = trackOverlay.m_oContext;
 		_this.setTransform(shapeCtx, shapeOverlayCtx, autoShapeTrack, trackOverlay);
 		// Clip
-		_this.clip(shapeOverlayCtx, _this.worksheet.rangeToRectRel(_this.range, 0));
+		_this.clip(shapeOverlayCtx, _this.worksheet.rangeToRectRel(_this.range, 0, true));
 		if (drawingDocument.m_bIsSelection) {
 			if (!window["IS_NATIVE_EDITOR"]) {
 				drawingDocument.SelectionMatrix = null;
@@ -857,7 +857,17 @@ DrawingArea.prototype.drawSelection = function(drawingDocument) {
 	if(oWatermark) {
 		oWatermark.zoom = 1.0;
 		oWatermark.Generate();
-		oWatermark.Draw(ctx, ctx.canvas.width, ctx.canvas.height);
+		if(oWatermark.width > 0 && oWatermark.height > 0) {
+			let nOffsetY = oWS.cellsTop;
+			while (nOffsetY < ctx.canvas.height) {
+				let nOffsetX = oWS.cellsLeft;
+				while (nOffsetX < ctx.canvas.width) {
+					oWatermark.Draw(ctx, nOffsetX, nOffsetY, oWatermark.width, oWatermark.height);
+					nOffsetX += oWatermark.width;
+				}
+				nOffsetY += oWatermark.height;
+			}
+		}
 	}
 
 	if (this.api) {

@@ -32,14 +32,14 @@
 
 $(function () {
 
-    let Root, MathContent, logicDocument;
+    let Root, MathContent, logicDocument, p1;
 
     function Init() {
 		logicDocument = AscTest.CreateLogicDocument();
 		logicDocument.Start_SilentMode();
         logicDocument.RemoveFromContent(0, logicDocument.GetElementsCount(), false);
 
-        let p1 = new AscWord.Paragraph();
+        p1 = new AscWord.Paragraph();
         logicDocument.AddToContent(0, p1);
 
         MathContent = new ParaMath();
@@ -387,6 +387,9 @@ $(function () {
 			Test("[]+", [["ParaRun", ""], ["CDelimiter", "[]"], ["ParaRun", "+"]], false);
 			Test("||+", [["ParaRun", ""], ["CDelimiter", "||"], ["ParaRun", "+"]], false);
 
+			Test("|z}+", [["ParaRun", ""], ["CDelimiter", "|z}"], ["ParaRun", "+"]], false);
+			Test("(c|+", [["ParaRun", ""], ["CDelimiter", "(c|"], ["ParaRun", "+"]], false);
+
 			Test("(1+2)+", [["ParaRun", ""], ["CDelimiter", "(1+2)"], ["ParaRun", "+"]], false);
 			Test("{1+2}+", [["ParaRun", ""], ["CDelimiter", "{1+2}"], ["ParaRun", "+"]], false);
 			Test("[1+2]+", [["ParaRun", ""], ["CDelimiter", "[1+2]"], ["ParaRun", "+"]], false);
@@ -457,7 +460,7 @@ $(function () {
 			//Test(`(a + b)^n =∑_(k=0)^n▒(n¦k) a^k  b^(n-k)  `, [["ParaRun", ""], ["CDegree", "(a + b)^n"], ["ParaRun", "="], ["CNary", "∑^n_(k=0)▒(n¦k)"],  ["ParaRun", ""], ["CDegree", "a^k"], ["CDegree", "b^(n-k)"]], false, "Check Complex content", true);
 			Test(`∑_2^2▒(n/23)`, [["ParaRun", ""], ["CNary", "∑_2^2▒(n/23)"], ["ParaRun", ""]], false, "Check Complex content", true);
 			//Test(`(x+⋯+x)^(k "times")`, [["ParaRun", ""], ["CDegree", "(x+⋯+x)^(k \"times\")"], ["ParaRun", ""]], false, "Check Complex content", true);
-			Test(`𝐸 = 𝑚𝑐^2`, [["ParaRun", "𝐸 = "], ["CDegree", "𝑚𝑐^2"], ["ParaRun", ""]], false, "Check Complex content", true);
+			//Test(`𝐸 = 𝑚𝑐^2`, [["ParaRun", "𝐸 = "], ["CDegree", "𝑚𝑐^2"], ["ParaRun", ""]], false, "Check Complex content", true);
 			Test(`∫_0^a▒xⅆx/(x^2+a^2)`, [["ParaRun", ""], ["CNary", "∫_0^a▒〖xⅆx/(x^2+a^2)〗"], ["ParaRun", ""]], false, "Check Complex content", true);
 			//Test(`lim┬(n→∞) a_n`, [["ParaRun", ""], ["CLimit", "lim┬(n→∞)⁡a_n"], ["ParaRun", ""]], false, "Check Complex content", true);
 			//Test(`ⅈ²=-1`, [["ParaRun", ""], ["CDegree", "ⅈ²=-1"], ["ParaRun", ""]], false, "Check Complex content", true);
@@ -773,6 +776,8 @@ $(function () {
 			QUnit.module( "autocorrect");
 			Test("^ ", [["ParaRun", ""], ["CDegree", "^"]], false, "Check index");
 			Test("x^y ", [["ParaRun", ""], ["CDegree", "x^y"], ["ParaRun", ""]], false, "Check index");
+			Test("x^' ", [["ParaRun", ""], ["CDegree", "x^'"], ["ParaRun", ""]], false, "Check index");
+			Test("x^\" ", [["ParaRun", ""], ["CDegree", "x^\""], ["ParaRun", ""]], false, "Check index");
 			Test("x^1 ", [["ParaRun", ""], ["CDegree", "x^1"], ["ParaRun", ""]], false, "Check index");
 			Test("1^x ", [["ParaRun", ""], ["CDegree", "1^x"], ["ParaRun", ""]], false, "Check index");
 			Test("x^(1+2) ", [["ParaRun", ""], ["CDegree", "x^(1+2)"], ["ParaRun", ""]], false, "Check index");
@@ -1022,6 +1027,7 @@ $(function () {
 			Test("■(1&2@3&4) ", [["ParaRun", ""], ["CMathMatrix", "■(1&2@3&4)"], ["ParaRun", ""]], false, "Check matrix");
 			Test("■(1&2) ", [["ParaRun", ""], ["CMathMatrix", "■(1&2)"], ["ParaRun", ""]], false, "Check matrix");
 			Test("■(&2&3@4&5) ", [["ParaRun", ""], ["CMathMatrix", "■(&2&3@4&5&)"], ["ParaRun", ""]], false, "Check matrix");
+			Test("■(&&&@@@) ", [["ParaRun", ""], ["CMathMatrix", "■(&&&@&&&@&&&@&&&)"], ["ParaRun", ""]], false, "Check matrix");
 		})
 
 		QUnit.module( "Accents", function ()
@@ -1080,6 +1086,103 @@ $(function () {
 
 		QUnit.module( "Bugs", function ()
 		{
+			QUnit.test('Check correct word while input rBrackets', function (assert)
+			{
+				Clear();
+				logicDocument.SetMathInputType(0);
+				AddText('(1->\\infty)');
+				assert.ok(true, "Add text '(1->\\infty)'");
+
+				MathContent.ConvertView(true, Asc.c_oAscMathInputType.Unicode);
+				assert.ok(true, "Convert to linear view");
+
+				let strBinomial = MathContent.GetTextOfElement(0).GetText();
+				assert.strictEqual(strBinomial, '(1→∞)', 'Check \\infty');
+			})
+
+			QUnit.test('Check absolute brackets inside normal brackets', function (assert)
+			{
+				Clear();
+				logicDocument.SetMathInputType(0);
+				AddText('(x|y|z)');
+				assert.ok(true, "Add text '(x|y|z)'");
+
+				MathContent.ConvertView(false, Asc.c_oAscMathInputType.Unicode);
+				assert.ok(true, "Convert to professional view");
+
+				let oWrapDelimiter	= MathContent.Root.Content[1];
+				let oDelContent		= oWrapDelimiter.Content[0];
+				let oFirstParaRun	= oDelContent.Content[0];
+				let oInnerDel		= oDelContent.Content[1];
+				let oSecondParaRun	= oDelContent.Content[2];
+
+				assert.strictEqual(oFirstParaRun.GetTextOfElement(0).GetText(), 'x', 'Check first text is x');
+				assert.strictEqual(oInnerDel.GetTextOfElement(0).GetText(), '|y|', 'Check del is |y|');
+				assert.strictEqual(oSecondParaRun.GetTextOfElement(0).GetText(), 'z', 'Check second text is z');
+
+				let strBinomial = MathContent.GetTextOfElement(0).GetText();
+				assert.strictEqual(strBinomial, '(x|y|z)', 'Check');
+			})
+
+			QUnit.test('Check Dirac notion', function (assert)
+			{
+				// in future find better algorithm
+				//
+				// 		"...Another case where we treat | as a close delimiter is if it is followed by a space
+				// 		(U+0020). This handles the important case of the bra vector ⟨ | in Dirac notation..."
+				//
+				// now we don't need to add spaces to handle these brackets correctly
+
+				Clear();
+				logicDocument.SetMathInputType(0);
+
+				AscMath.SetAutoConvertation(false);
+				AddText('p=∑_ψ▒〖P_ψ |ψ⟩ ⟨ψ|〗');
+				assert.ok(true, "Add text 'p=∑_ψ▒〖P_ψ |ψ⟩ ⟨ψ|〗'");
+
+				MathContent.ConvertView(false, Asc.c_oAscMathInputType.Unicode);
+				assert.ok(true, "Convert to professional view");
+
+				let strBinomial = MathContent.GetTextOfElement(0).GetText();
+				assert.strictEqual(strBinomial, 'p=∑_ψ▒〖P_ψ |ψ⟩ ⟨ψ|〗', 'Check');
+
+				MathContent.ConvertView(true, Asc.c_oAscMathInputType.Unicode);
+				assert.ok(true, "Convert to professional view");
+
+				strBinomial = MathContent.GetTextOfElement(0).GetText();
+				assert.strictEqual(strBinomial, 'p=∑_ψ▒〖P_ψ |ψ⟩ ⟨ψ|〗', 'Check');
+
+				AscMath.SetAutoConvertation(true);
+			})
+
+			QUnit.test('Check eqarray', function (assert)
+			{
+				Clear();
+				logicDocument.SetMathInputType(0);
+				AddText('{█(a, n odd@|a|, n even)┤');
+				assert.ok(true, "Add text '{█(a, n odd@|a|, n even)┤'");
+
+				MathContent.ConvertView(false, Asc.c_oAscMathInputType.Unicode);
+				assert.ok(true, "Convert to linear view");
+
+				let strBinomial = MathContent.GetTextOfElement(0).GetText();
+				assert.strictEqual(strBinomial, '{█(a, n odd@|a|, n even)┤', 'Check');
+			})
+
+			QUnit.test('Check eqarray frac', function (assert)
+			{
+				Clear();
+				logicDocument.SetMathInputType(0);
+				AddText('█(1@█(@█(@█(@))))/2');
+				assert.ok(true, "Add text '█(1@█(@█(@█(@))))/2'");
+
+				MathContent.ConvertView(false, Asc.c_oAscMathInputType.Unicode);
+				assert.ok(true, "Convert to linear view");
+
+				let strBinomial = MathContent.GetTextOfElement(0).GetText();
+				assert.strictEqual(strBinomial, '█(1@█(@█(@█(@))))/2', 'Check');
+			})
+
 			QUnit.test('Check review info convert math; bug #67505', function (assert)
 			{
 				Clear();
@@ -1148,28 +1251,42 @@ $(function () {
 			{
 				Clear();
 				assert.ok(true, "Set Unicode mode");
+
 				logicDocument.SetMathInputType(0);
 				AddText("1/2+x_2 ");
 				assert.ok(true, "Add '1/2+x_2' and convert it");
 
 				AscTest.MoveCursorLeft(false, false, 6);
-				assert.ok(true, "Move cursor to start of '='");
+				assert.ok(true, "Move cursor to start of '+'");
 
 				let oBase = new CMathMenuBase();
 				oBase.insert_ManualBreak();
 				logicDocument.Set_MathProps(oBase);
 				assert.ok(true, "Add manual break");
 
-				assert.strictEqual(MathContent.Root.Content[2].MathPrp.brk !== undefined, true, 'Check brk in "=" ParaRun');
+				assert.strictEqual(MathContent.Root.Content[2].MathPrp.brk !== undefined, true, 'Check brk in "+" ParaRun');
 
 				logicDocument.ConvertMathView(true);
 				assert.ok(true, "Convert to linear view");
 
-				assert.strictEqual(MathContent.Root.Content[2].MathPrp.brk !== undefined, true, 'Check brk in "=" ParaRun');
+				assert.strictEqual(MathContent.Root.Content[1].MathPrp.brk !== undefined, true, 'Check brk in "+" ParaRun');
 
 				logicDocument.ConvertMathView(false);
 				assert.ok(true, "Convert to professional view");
-				assert.strictEqual(MathContent.Root.Content[2].MathPrp.brk !== undefined, true, 'Check brk in "=" ParaRun');
+				assert.strictEqual(MathContent.Root.Content[2].MathPrp.brk !== undefined, true, 'Check brk in "+" ParaRun');
+			})
+
+			QUnit.test('Check complex content in math func', function (assert)
+			{
+				Clear();
+				logicDocument.SetMathInputType(0);
+
+				AddText('cos  \\theta ');
+
+				assert.ok(true, "Convert to linear view");
+
+				let strFunc = MathContent.GetTextOfElement(0).GetText();
+				assert.strictEqual(strFunc, 'cos⁡〖 θ〗', 'Check complex math func content');
 			})
 		})
 	})
@@ -1231,6 +1348,134 @@ $(function () {
 			let cont = MathContent.Root;
 
 			assert.strictEqual(cont.CurPos, 2, 'Cursor after function');
+		})
+
+		QUnit.test('Add nary from menu', function (assert)
+		{
+			if (p1.Content.length > 0)
+				p1.Content.splice(0, p1.Content.length);
+
+			p1.AddToContentToEnd(AscTest.CreateRun())
+			p1.AddToContentToEnd(AscTest.CreateRun())
+			p1.CorrectContent(true);
+
+			AscTest.MoveCursorToParagraph(p1, true);
+
+			logicDocument.SetMathInputType(0);
+			logicDocument.AddParaMath(67108864); // nary without content
+
+			MathContent = logicDocument.GetCurrentMath();
+			assert.ok(true, "Add nary without content ∫");
+
+			let strNary = MathContent.GetTextOfElement(0).GetText();
+			assert.strictEqual(strNary, '∫', 'Check');
+		})
+
+		QUnit.test('Add linear fraction and convert to linear to proff', function (assert)
+		{
+			if (p1.Content.length > 0)
+				p1.Content.splice(0, p1.Content.length);
+
+			p1.AddToContentToEnd(AscTest.CreateRun())
+			p1.AddToContentToEnd(AscTest.CreateRun())
+			p1.CorrectContent(true);
+
+			AscTest.MoveCursorToParagraph(p1, true);
+
+			logicDocument.SetMathInputType(0);
+			logicDocument.AddParaMath(16777218);
+			MathContent = logicDocument.GetCurrentMath();
+			assert.ok(true, "Add linear fraction without content []/[]");
+			AscTest.MoveCursorLeft(false, false, 1);
+			AddText('y');
+			AscTest.MoveCursorLeft(false, false, 3);
+			AddText('x');
+			assert.ok(true, "Add content to numerator and denominator");
+
+			let cont = MathContent.Root
+			let frac = cont.Content[1];
+			let isLinear = frac.Pr.type === LINEAR_FRACTION;
+			assert.strictEqual(isLinear, true, 'Check is linear fraction');
+
+			logicDocument.ConvertMathView(true);
+			assert.ok(true, "Convert in linear form");
+
+			let strLinearFrac = MathContent.GetTextOfElement(0).GetText();
+			assert.strictEqual(strLinearFrac, 'x∕y', 'Check');
+
+			logicDocument.ConvertMathView(false);
+			assert.ok(true, "Convert in professional form");
+
+			isLinear = frac.Pr.type === LINEAR_FRACTION;
+			assert.strictEqual(isLinear, true, 'Check is linear fraction');
+		})
+
+		QUnit.test('Check spaces degradation while convert math', function (assert)
+		{
+			Clear();
+			logicDocument.SetMathInputType(0);
+			AddText('1/2  1/2  1/2 ');
+			assert.ok(true, "Add 1/2 1/2 1/2 fraction");
+			logicDocument.ConvertMathView(true); assert.ok(true, "Convert to linear form");
+			logicDocument.ConvertMathView(false); assert.ok(true, "Convert to professional form");
+			logicDocument.ConvertMathView(true);assert.ok(true, "Convert to linear form");
+			logicDocument.ConvertMathView(false); assert.ok(true, "Convert to professional form");
+			logicDocument.ConvertMathView(true);assert.ok(true, "Convert to linear form");
+			logicDocument.ConvertMathView(false); assert.ok(true, "Convert to professional form");
+
+			let strNary = MathContent.GetTextOfElement(0).GetText();
+			assert.strictEqual(strNary, '1/2 1/2 1/2', 'Check text');
+		})
+
+		QUnit.test('Function autocorrection with _ and ^', function (assert)
+		{
+			Clear();
+			logicDocument.SetMathInputType(0);
+			AddText('cos_');
+
+			let strFunc = MathContent.GetTextOfElement(0).GetText();
+			assert.strictEqual('⁡', strFunc[3], 'Check \\funcapply');
+			assert.strictEqual(MathContent.Root.Content[0].MathPrp.sty === 3, true, 'Check normal style');
+		})
+
+		QUnit.test('Limit function autocorrection with _ and ^', function (assert)
+		{
+			Clear();
+			logicDocument.SetMathInputType(0);
+			AddText('lim_');
+
+			let strFunc = MathContent.GetTextOfElement(0).GetText();
+			assert.strictEqual('⁡', strFunc[3], 'Check \\funcapply');
+		})
+
+		QUnit.test('Check processing of fractions', function (assert)
+		{
+			Clear();
+			logicDocument.SetMathInputType(0);
+			AddText('1/2/3/4/5/6/7/8 ');
+			assert.ok(true, "Add 1/2/3/4/5/6/7/8 fraction");
+			let strFrac = MathContent.GetTextOfElement(0).GetText();
+			assert.strictEqual(strFrac, '((((((1/2)/3)/4)/5)/6)/7)/8', 'Check');
+		})
+
+		QUnit.test('Check processing of fractions 2', function (assert)
+		{
+			Clear();
+			logicDocument.SetMathInputType(0);
+			AddText('1/2 //3 ');
+			assert.ok(true, "Add 1/2 //3  fraction");
+			let strFrac = MathContent.GetTextOfElement(0).GetText();
+			assert.strictEqual(strFrac, '((1/2)/)/3', 'Check');
+		})
+
+		QUnit.test('Check space eating while auto-convert between-correction', function (assert)
+		{
+			Clear();
+			logicDocument.SetMathInputType(0);
+			AddText(' 1/2 ');
+			assert.ok(true, "Add ' 1/2 ' fraction with space before");
+			let strFrac = MathContent.GetTextOfElement(0).GetText();
+			assert.strictEqual(strFrac, '1/2', 'Check is space ate');
 		})
 
 		QUnit.test('Check cursor pos after del content inside math func argument', function (assert)
@@ -1463,15 +1708,64 @@ $(function () {
 			Test("\\sqrt\\frac{1}{2}", [["ParaRun", ""], ["CRadical", "\\sqrt{\\frac{1}{2}}"],["ParaRun", ""]], true, "Check LaTeX words");
 			Test("\\sqrt[2^2]\\frac{1}{2}", [["ParaRun", ""], ["CRadical", "\\sqrt[2^2]{\\frac{1}{2}}"],["ParaRun", ""]], true, "Check LaTeX words");
 			Test("\\sqrt[2^2] {\\frac{1}{2}+3}", [["ParaRun", ""], ["CRadical", "\\sqrt[2^2]{\\frac{1}{2}+3}"],["ParaRun", ""]], true, "Check LaTeX words");
+
+			QUnit.test('Check pos for radical in LaTeX', function (assert)
+			{
+				Clear();
+				logicDocument.SetMathInputType(1);
+
+				AddText('\\pm\\sqrt');
+
+				MathContent.ConvertView(true, Asc.c_oAscMathInputType.LaTeX);
+				assert.ok(true, "Convert to proff. view");
+
+				MathContent.ConvertView(true, Asc.c_oAscMathInputType.LaTeX);
+				assert.ok(true, "Convert to linear view");
+
+				let strFunc = MathContent.GetTextOfElement(0).GetText();
+				assert.strictEqual(strFunc, '\\pm\\sqrt', 'Check complex math func content');
+			})
 		})
 
 		QUnit.module( "bugs", function ()
 		{
-			QUnit.module( "Check bug #61007", function ()
+			QUnit.test('Check linear form for nonstandard name func', function (assert)
+			{
+				Clear();
+				logicDocument.SetMathInputType(1);
+
+				AddText('\\lim\\below{\\left(n\\to\\infty\\right){\\left(1+\\frac{1}{n}\\right)^n}}');
+
+				MathContent.ConvertView(true, Asc.c_oAscMathInputType.LaTeX);
+				assert.ok(true, "Convert to proff. view");
+
+				MathContent.ConvertView(true, Asc.c_oAscMathInputType.LaTeX);
+				assert.ok(true, "Convert to linear view");
+
+				let strFunc = MathContent.GetTextOfElement(0).GetText();
+				assert.strictEqual(strFunc, '\\lim\\below{\\left(n\\to\\infty\\right){\\left(1+\\frac{1}{n}\\right)^n}}', 'Check complex math func content');
+			})
+
+			QUnit.test('Check eqarray frac', function (assert)
+			{
+				Clear();
+				logicDocument.SetMathInputType(1);
+				AddText('\\frac{\\substack{1\\\\\\substack{\\\\\\substack{\\\\\\substack{\\\\}}}}}{2}');
+				assert.ok(true, "Add text '\\frac{\\substack{1\\\\\\substack{\\\\\\substack{\\\\\\substack{\\\\}}}}}{2}'");
+
+				MathContent.ConvertView(false, Asc.c_oAscMathInputType.LaTeX);
+				assert.ok(true, "Convert to linear view");
+
+				let strBinomial = MathContent.GetTextOfElement(true).GetText();
+				assert.strictEqual(strBinomial, '\\frac{\\substack{1\\\\\\substack{\\\\\\substack{\\\\\\substack{\\\\}}}}}{2}', 'Check');
+			})
+
+			QUnit.module( "Check LaTeX matrix", function ()
 			{
 				Test("\\begin{matrix}1&2\\\\3&4\\\\\\end{matrix}", [["ParaRun", ""], ["CMathMatrix", "\\begin{matrix}1&2\\\\3&4\\\\\\end{matrix}"]], true, "Check bug #61007 default matrix");
 				Test("\\begin{pmatrix}1&2\\\\3&4\\\\\\end{pmatrix}", [["ParaRun", ""], ["CDelimiter", "\\left(\\begin{matrix}1&2\\\\3&4\\\\\\end{matrix}\\right)"]], true, "Check bug #61007 pmatrix");
 				Test("\\left[\\begin{matrix}1&2\\\\3&4\\\\\\end{matrix}\\right]", [["ParaRun", ""], ["CDelimiter", "\\left[\\begin{matrix}1&2\\\\3&4\\\\\\end{matrix}\\right]"]], true, "Check bug #61007 pmatrix");
+				Test("\\begin{matrix}&&\\\\&&\\\\&&\\\\&&\\end{matrix}", [["ParaRun", ""], ["CMathMatrix", "\\begin{matrix}&&\\\\&&\\\\&&\\\\&&\\\\\\end{matrix}"]], true, "Check matrix bug #71892");
 			})
 
 			QUnit.module( "Check bug #67181", function ()

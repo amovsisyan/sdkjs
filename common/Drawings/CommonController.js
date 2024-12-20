@@ -1525,7 +1525,7 @@
 
 
 						if (AscFormat.isLeftButtonDoubleClick(e) && !e.ShiftKey && !e.CtrlKey && ((this.selection.groupSelection && this.selection.groupSelection.selectedObjects.length === 1) || this.selectedObjects.length === 1)) {
-							var drawing = this.selectedObjects[0].parent;
+							var drawing = this.selectedObjects[0] && this.selectedObjects[0].parent;
 
 							if (object.getObjectType() === AscDFH.historyitem_type_ChartSpace && this.handleChartDoubleClick) {
 								this.handleChartDoubleClick(drawing, object, e, x, y, pageIndex);
@@ -2152,7 +2152,7 @@
 										false,
 										false,
 										undefined,
-										isDrawHandles && cropObject.canEdit()
+										isDrawHandles && cropObject.canEdit() && cropObject.canResize()
 									);
 									drawingDocument.DrawTrack(
 										AscFormat.TYPE_TRACK.CROP,
@@ -2164,7 +2164,7 @@
 										false,
 										false,
 										undefined,
-										isDrawHandles && oCrop.canEdit()
+										isDrawHandles && oCrop.canEdit() && oCrop.canResize()
 									);
 								}
 							}
@@ -2184,7 +2184,7 @@
 									AscFormat.CheckObjectLine(oTx),
 									oTx.canRotate(),
 									undefined,
-									isDrawHandles && oTx.canEdit()
+									isDrawHandles && oTx.canEdit() && oTx.canResize()
 								);
 								oTx.drawAdjustments(drawingDocument);
 							}
@@ -2201,7 +2201,7 @@
 								false,
 								oGrp.canRotate(),
 								undefined,
-								isDrawHandles && oGrp.canEdit()
+								isDrawHandles && oGrp.canEdit() && oGrp.canResize()
 							);
 							const oGrpTx = oGrp.selection.textSelection;
 							const oGrpChart = oGrp.selection.chartSelection;
@@ -2217,7 +2217,7 @@
 									AscFormat.CheckObjectLine(oGrpTx),
 									oGrpTx.canRotate(),
 									undefined,
-									isDrawHandles && this.selection.groupSelection.canEdit()
+									isDrawHandles && this.selection.groupSelection.canEdit() && this.selection.groupSelection.canResize()
 								);
 							} else if (oGrpChart) {
 								oGrpChart.drawSelect(drawingDocument, pageIndex);
@@ -2237,7 +2237,7 @@
 										AscFormat.CheckObjectLine(oDrawing),
 										oDrawing.canRotate() && !Asc.editor.isPdfEditor(),
 										undefined,
-										isDrawHandles && oGrp.canEdit());
+										isDrawHandles && oGrp.canEdit() && oGrp.canResize());
 								}
 							}
 							if (aGrpSelected.length === 1) {
@@ -2268,7 +2268,7 @@
 									AscFormat.CheckObjectLine(oDrawing),
 									oDrawing.canRotate(),
 									undefined,
-									isDrawHandles && oDrawing.canEdit()
+									isDrawHandles && oDrawing.canEdit() && oDrawing.canResize()
 								);
 							}
 						}
@@ -3842,6 +3842,9 @@
 						for (i = 0; i < objects_by_type.smartArts.length; ++i) {
 							objects_by_type.smartArts[i].changeFill(props.fill);
 						}
+						for (i = 0; i < objects_by_type.images.length; ++i) {
+							objects_by_type.images[i].changeFill(props.fill);
+						}
 					}
 					if (isRealObject(props.shadow) || props.shadow === null) {
 						for (i = 0; i < objects_by_type.shapes.length; ++i) {
@@ -3960,14 +3963,35 @@
 							}
 						}
 					}
+					if (AscFormat.isRealNumber(props.transparent)) {
+						var oImg;
+						for (i = 0; i < objects_by_type.images.length; ++i) {
+							oImg = objects_by_type.images[i];
+							oImg.setTransparent(props.transparent);
+						}
+					}
 					if (props.resetCrop) {
 						for (i = 0; i < objects_by_type.images.length; ++i) {
-							if (objects_by_type.images[i].blipFill) {
-								var oBlipFill = objects_by_type.images[i].blipFill.createDuplicate();
-								oBlipFill.tile = null;
-								oBlipFill.stretch = true;
-								oBlipFill.srcRect = null;
-								objects_by_type.images[i].setBlipFill(oBlipFill);
+							let oImg = objects_by_type.images[i];
+							let oBlipFill = oImg.blipFill;
+							if (oBlipFill) {
+								let oBlipFillCopy = oBlipFill.createDuplicate();
+								oBlipFillCopy.tile = null;
+								oBlipFillCopy.stretch = true;
+								oBlipFillCopy.srcRect = null;
+								oImg.setBlipFill(oBlipFillCopy);
+
+								let oImgPr = new Asc.asc_CImgProperty();
+								oImgPr.ImageUrl = oBlipFill.RasterImageId;
+								let oSize = oImgPr.asc_getOriginSize(Asc.editor);
+								if(oSize.asc_getIsCorrect()) {
+									oImgPr.Width = oSize.asc_getImageWidth();
+									oImgPr.Height = oSize.asc_getImageHeight();
+									fApplyDrawingSize(oImg, oImgPr);
+									if(oImg.parent && oImg.parent.CheckWH) {
+										oImg.parent.CheckWH();
+									}
+								}
 							}
 
 						}
@@ -4271,6 +4295,65 @@
 						return;
 					}
 					if(oChartSpace.isChartEx()) {
+
+						var oChart = oChartSpace.chart;
+						var oPlotArea = oChart.plotArea;
+						var nTitle = oProps.getTitle(), oTitle, bOverlay;
+						if (nTitle === c_oAscChartTitleShowSettings.none) {
+							if (oChart.title) {
+								oChart.setTitle(null);
+							}
+						} else if (nTitle === c_oAscChartTitleShowSettings.noOverlay
+							|| nTitle === c_oAscChartTitleShowSettings.overlay) {
+							oTitle = oChart.title;
+							if (!oTitle) {
+								oTitle = new AscFormat.CTitle();
+								oChart.setTitle(oTitle);
+							}
+							bOverlay = (nTitle === c_oAscChartTitleShowSettings.overlay);
+							if (oTitle.overlay !== bOverlay) {
+								oTitle.setOverlay(bOverlay);
+							}
+						}
+
+
+						var nLegend = oProps.getLegendPos(), oLegend;
+						bOverlay = (c_oAscChartLegendShowSettings.leftOverlay === nLegend || nLegend === c_oAscChartLegendShowSettings.rightOverlay);
+						if (bOverlay) {
+							if (c_oAscChartLegendShowSettings.leftOverlay === nLegend) {
+								nLegend = c_oAscChartLegendShowSettings.left;
+							}
+							if (c_oAscChartLegendShowSettings.rightOverlay === nLegend) {
+								nLegend = c_oAscChartLegendShowSettings.right;
+							}
+						}
+						if (nLegend !== null) {
+							if (nLegend === c_oAscChartLegendShowSettings.none) {
+								if (oChart.legend) {
+									oChart.setLegend(null);
+								}
+							} else {
+								oLegend = oChart.legend;
+								var bChange = false;
+								if (!oLegend) {
+									oLegend = new AscFormat.CLegend();
+									oChart.setLegend(oLegend);
+									bChange = true;
+								}
+								if (oLegend.legendPos !== nLegend && nLegend !== c_oAscChartLegendShowSettings.layout) {
+									oLegend.setLegendPos(nLegend);
+									bChange = true;
+								}
+								if (oLegend.overlay !== bOverlay) {
+									oLegend.setOverlay(bOverlay);
+									bChange = true;
+								}
+								if (bChange) {
+									oLegend.setLayout(new AscFormat.CLayout());
+								}
+								oChartSpace.checkElementChartStyle(oLegend);
+							}
+						}
 						return;
 					}
 					var oApi = this.getEditorApi();
@@ -4300,6 +4383,7 @@
 					//Set the properties which was already set. It needs for the fast coediting. TODO: check it
 					oChartSpace.setChart(oChartSpace.chart.createDuplicate());
 					oChartSpace.setStyle(oChartSpace.style);
+					oChartSpace.setDisplayTrendlinesEquation(oProps.displayTrendlinesEquation);
 
 					//Apply chart preset TODO: remove this when chartStyle will be implemented
 					var oChart = oChartSpace.chart;
@@ -4514,6 +4598,7 @@
 					}
 
 					ret.putStyle(chart_space.getChartStyleIdx());
+					ret.putDisplayTrendlinesEquation(chart_space.getDisplayTrendlinesEquation());
 
 					ret.putTitle(isRealObject(chart.title) ? (chart.title.overlay ? c_oAscChartTitleShowSettings.overlay : c_oAscChartTitleShowSettings.noOverlay) : c_oAscChartTitleShowSettings.none);
 
@@ -4699,6 +4784,7 @@
 					if (isRealObject(chart) && typeof chart["binary"] === "string" && chart["binary"].length > 0) {
 						var asc_chart_binary = new Asc.asc_CChartBinary();
 						asc_chart_binary.asc_setBinary(chart["binary"]);
+						asc_chart_binary.asc_setIsChartEx(chart["IsChartEx"]);
 						ret = asc_chart_binary.getChartSpace(editor.WordControl.m_oLogicDocument);
 						if (ret.spPr && ret.spPr.xfrm) {
 							ret.spPr.xfrm.setOffX(0);
@@ -7257,6 +7343,8 @@
 								new_image_props =
 									{
 										ImageUrl: drawing.getImageUrl(),
+										transparent: drawing.getTransparent(),
+										isCrop: drawing.hasCrop(),
 										w: drawing.extX,
 										h: drawing.extY,
 										rot: drawing.rot,
@@ -7279,6 +7367,10 @@
 								else {
 									if (image_props.ImageUrl !== null && image_props.ImageUrl !== new_image_props.ImageUrl)
 										image_props.ImageUrl = null;
+									if (image_props.transparent != null && image_props.transparent !== new_image_props.transparent)
+										image_props.transparent = null;
+									if (image_props.isCrop != null && image_props.isCrop !== new_image_props.isCrop)
+										image_props.isCrop = false;
 									if (image_props.w != null && image_props.w !== new_image_props.w)
 										image_props.w = null;
 									if (image_props.h != null && image_props.h !== new_image_props.h)
@@ -7361,6 +7453,8 @@
 								new_image_props =
 									{
 										ImageUrl: drawing.getImageUrl(),
+										isCrop: drawing.hasCrop(),
+										transparent: null,
 										w: drawing.extX,
 										h: drawing.extY,
 										locked: locked,
@@ -7383,6 +7477,10 @@
 									image_props.ImageUrl = null;
 									if (image_props.w != null && image_props.w !== new_image_props.w)
 										image_props.w = null;
+									if (image_props.transparent != null && image_props.transparent !== new_image_props.transparent)
+										image_props.transparent = null;
+									if (image_props.isCrop != null && image_props.isCrop !== new_image_props.isCrop)
+										image_props.isCrop = false;
 									if (image_props.h != null && image_props.h !== new_image_props.h)
 										image_props.h = null;
 									if (image_props.x != null && image_props.x !== new_image_props.x)
@@ -7686,6 +7784,10 @@
 									else {
 										if (image_props.ImageUrl !== null && image_props.ImageUrl !== group_drawing_props.imageProps.ImageUrl)
 											image_props.ImageUrl = null;
+										if (image_props.transparent !== null && image_props.transparent !== group_drawing_props.imageProps.transparent)
+											image_props.transparent = null;
+										if (image_props.isCrop !== null && image_props.isCrop !== group_drawing_props.imageProps.isCrop)
+											image_props.isCrop = null;
 
 										if (image_props.w != null && image_props.w !== group_drawing_props.imageProps.w)
 											image_props.w = null;
@@ -8094,6 +8196,8 @@
 						image_props.flipH = props.imageProps.flipH;
 						image_props.flipV = props.imageProps.flipV;
 						image_props.ImageUrl = props.imageProps.ImageUrl;
+						image_props.isCrop = props.imageProps.isCrop;
+						image_props.transparent = props.imageProps.transparent;
 						image_props.Locked = props.imageProps.locked === true;
 						image_props.lockAspect = props.imageProps.lockAspect;
 						image_props.anchor = props.imageProps.anchor;
@@ -9763,7 +9867,17 @@
 			this.Bounds.CheckPoint(_x1, _y1);
 			this.Bounds.CheckPoint(_x2, _y2);
 		};
-
+		/**
+		 * @param {{x: Number, y: Number, z? :Number}[]} points
+		 */
+		CSlideBoundsChecker.prototype.checkPoints = function (points) {
+			let thisContext = this;
+			points.forEach(function(point) {
+				let x = thisContext.m_oFullTransform.TransformPointX(point.x, point.y);
+				let y = thisContext.m_oFullTransform.TransformPointX(point.x, point.y);
+				thisContext.Bounds.CheckPoint(x, y);
+			})
+		};
 		// images
 		CSlideBoundsChecker.prototype.drawImage2 = function(img, x, y, w, h) {
 			var _x1 = this.m_oFullTransform.TransformPointX(x, y);

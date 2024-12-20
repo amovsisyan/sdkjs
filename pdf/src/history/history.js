@@ -87,11 +87,6 @@
 	};
 	History.prototype.CheckUnionLastPoints = function()
     {
-        // Не объединяем точки в истории, когда отключается пересчет.
-        // TODO: Неправильно изменяется RecalcIndex
-        if (this.Document && null == this.Document.Viewer.scheduledRepaintTimer)
-            return false;
-
         // Не объединяем точки во время Undo/Redo
         if (this.Index < this.Points.length - 1)
         	return false;
@@ -106,7 +101,7 @@
         var Point2 = this.Points[this.Points.length - 1];
 
         // запрет на объединение
-        if (Point1.forbitUnion || Point2.forbitUnion) {
+        if (Point1.forbidUnion || Point2.forbidUnion) {
             return false;
         }
 
@@ -206,6 +201,30 @@
         }
 
         return true;
+	};
+    History.prototype.ForbidUnionPoint = function(nIndex) {
+        if (!nIndex) {
+            nIndex = this.Points.length - 1;
+        }
+
+        if (this.Points[nIndex]) {
+            this.Points[nIndex].forbidUnion = true;
+        }
+    };
+	History.prototype.private_IsContentChange = function(Class, Data) {
+		if (Data.IsContentChange)
+			return Data.IsContentChange();
+		
+		return AscCommon.CHistory.prototype.private_IsContentChange.call(this, Class, Data);
+	};
+	History.prototype.private_UpdateContentChangesOnUndo = function(Item)
+	{
+		if (!this.private_IsContentChange(Item.Class, Item.Data))
+			return;
+		
+		let contentChanges = Item.Data.GetContentChangesClass();
+		if (contentChanges)
+			contentChanges.RemoveByHistoryItem(Item);
 	};
 	
 	//----------------------------------------------------------export--------------------------------------------------

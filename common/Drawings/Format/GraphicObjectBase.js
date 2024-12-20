@@ -974,6 +974,12 @@
 		}
 		return this.getNoRot() === false;
 	};
+	CGraphicObjectBase.prototype.canResize = function () {
+		if (!this.canEdit()) {
+			return false;
+		}
+		return this.getNoResize() === false;
+	};
 	CGraphicObjectBase.prototype.canSelect = function () {
 		return this.getNoSelect() === false;
 	};
@@ -1058,6 +1064,13 @@
 		let outerShdw = null;
 		if (this.spPr) {
 			outerShdw = this.spPr.getOuterShdw();
+		}
+		if (!outerShdw) {
+			let parents = this.getParentObjects();
+			let compiled_style = this.getCompiledStyle && this.getCompiledStyle();
+			if (isRealObject(parents.theme) && isRealObject(compiled_style) && isRealObject(compiled_style.effectRef)) {
+				outerShdw = parents.theme.getOuterShdw(compiled_style.effectRef.idx);
+			}
 		}
 		if(!outerShdw) {
 			if(this.getHierarchy) {
@@ -1297,6 +1310,9 @@
 		return this.checkCorrect();
 	};
 	CGraphicObjectBase.prototype.checkTypeCorrect = function () {
+		return true;
+	};
+	CGraphicObjectBase.prototype.isSupported = function () {
 		return true;
 	};
 	CGraphicObjectBase.prototype.handleUpdateExtents = function (bExtX) {

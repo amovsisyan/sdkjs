@@ -97,7 +97,11 @@
         AscCommon.History.Add(new CChangesPDFInkPoints(this, this._gestures.length, aInkPath, true));
         this._gestures.push(aInkPath);
 
-        this.SetRect(this.private_CalculateBoundingBox());
+        let oViewer = Asc.editor.getDocumentRenderer();
+        if (false == oViewer.IsOpenAnnotsInProgress) {
+            this.SetRect(this.private_CalculateBoundingBox());
+        }
+        
         this.SetWasChanged(true);
         this.recalcGeometry();
         this.SetNeedRecalc(true);
@@ -322,7 +326,7 @@
         oNewInk.SetAuthor(this.GetAuthor());
         oNewInk.SetModDate(this.GetModDate());
         oNewInk.SetCreationDate(this.GetCreationDate());
-        oNewInk.SetStrokeColor(aStrokeColor.slice());
+        aStrokeColor && oNewInk.SetStrokeColor(aStrokeColor.slice());
         oNewInk.SetWidth(this.GetWidth());
         oNewInk.SetOpacity(this.GetOpacity());
         oNewInk._relativePaths = this.GetRelativePaths().slice();

@@ -82,6 +82,10 @@
         if (this.IsNeedRecalc() == false)
             return;
 
+        if (this.IsNeedCheckAlign()) {
+            this.CheckAlignInternal();
+        }
+        
         if (this.GetTextSize() == 0) {
             if (null == this.getFormRelRect()) {
                 this.CalculateContentClipRect();
@@ -290,9 +294,11 @@
         else
             callbackAfterFocus.bind(this, x, y, e)();
 
-        this.AddActionsToQueue(AscPDF.FORMS_TRIGGERS_TYPES.MouseDown);
-        if (false == isInFocus) {
-            this.onFocus();
+        if (isInFocus) {
+            this.AddActionsToQueue(AscPDF.FORMS_TRIGGERS_TYPES.MouseDown);
+        }
+        else {
+            this.AddActionsToQueue(AscPDF.FORMS_TRIGGERS_TYPES.MouseDown, AscPDF.FORMS_TRIGGERS_TYPES.OnFocus);
         }
     };
     
@@ -322,11 +328,14 @@
 
         this.content.MoveCursorToStartPos();
         if (!Asc.editor.getDocumentRenderer().IsOpenFormsInProgress)
-            this.CheckAlignInternal();
+            this.SetNeedCheckAlign(true);
     };
     CComboBoxField.prototype.SetCurIdxs = function(aIdxs) {
         if (this.IsWidget()) {
-            this.SelectOption(aIdxs[0]);
+            if (undefined !== aIdxs[0]) {
+                this.SelectOption(aIdxs[0]);
+            }
+
             if (editor.getDocumentRenderer().IsOpenFormsInProgress)
                 this.SetApiCurIdxs(aIdxs);
         }
@@ -467,8 +476,19 @@
         }
         oDoc.EndNoHistoryMode();
         
-        if (this.GetApiValue() != this.GetValue()) {
-            AscCommon.History.Add(new CChangesPDFFormValue(this, this.GetApiValue(), this.GetValue()));
+        let aCurIdxs = this.GetCurIdxs();
+        let aApiIdxs = this.GetApiCurIdxs();
+
+        let isChanged = false;
+        for (let i = 0; i < aCurIdxs.length; i++) {
+            if (aCurIdxs[i] === undefined || aApiIdxs[i] === undefined || aCurIdxs[i] !== aApiIdxs[i]) {
+                isChanged = true;
+                break;
+            }
+        }
+
+        if (isChanged) {
+            AscCommon.History.Add(new CChangesPDFListFormCurIdxs(this, this.GetApiCurIdxs(), aCurIdxs));
             this.SetApiValue(this.GetValue());
             this.SetApiCurIdxs(this.GetCurIdxs());
         }
@@ -513,7 +533,7 @@
         // когда выравнивание посередине или справа, то после того
         // как ширина контента будет больше чем размер формы, выравнивание становится слева, пока текста вновь не станет меньше чем размер формы
         aFields.forEach(function(field) {
-            field.CheckAlignInternal();
+            field.SetNeedCheckAlign(true);
         });
 
         this.SetNeedCommit(false);
@@ -695,15 +715,6 @@
             }
         }
 
-        // форматируемое значение
-        let oFormatTrigger      = this.GetTrigger(AscPDF.FORMS_TRIGGERS_TYPES.Format);
-        let oActionRunScript    = oFormatTrigger ? oFormatTrigger.GetActions()[0] : null;
-        if (oActionRunScript) {
-            memory.widgetFlags |= (1 << 12);
-            let sFormatValue = this.contentFormat.getAllText();
-            memory.WriteString(sFormatValue);
-        }
-        
         if (value != null && Array.isArray(value) == true) {
             // флаг что значение - это массив
             memory.fieldDataFlags |= (1 << 13);
@@ -726,6 +737,9 @@
             }
         }
 
+        memory.fieldDataFlags |= (1 << 15);
+        this.WriteRenderToBinary(memory);
+        
         // top index
         
         if (this.IsEditable()) {
@@ -782,6 +796,8 @@
 	CComboBoxField.prototype.onMouseUp              = AscPDF.CTextField.prototype.onMouseUp;
 	CComboBoxField.prototype.OnContentChange        = AscPDF.CTextField.prototype.OnContentChange;
 	CComboBoxField.prototype.UpdateSelectionByEvent = AscPDF.CTextField.prototype.UpdateSelectionByEvent;
+	CComboBoxField.prototype.SetNeedCheckAlign      = AscPDF.CTextField.prototype.SetNeedCheckAlign;
+	CComboBoxField.prototype.IsNeedCheckAlign       = AscPDF.CTextField.prototype.IsNeedCheckAlign;
 
 	window["AscPDF"].CComboBoxField = CComboBoxField;
 })();

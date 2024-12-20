@@ -150,6 +150,7 @@
     	this.isUse3d = false;
     	this.cacheManager = null;
     	this.logging = true;
+        this.type = -1;
 
     	this.Selection = {
             Page1 : 0,
@@ -264,6 +265,12 @@
         image.requestWidth = requestW;
         image.requestHeight = requestH;
         return image;
+    };
+    CFile.prototype.addPage = function(pageIndex, pageObj) {
+        return this.nativeFile["addPage"](pageIndex, pageObj);
+    };
+    CFile.prototype.removePage = function(pageIndex) {
+        return this.nativeFile["removePage"](pageIndex);
     };
     CFile.prototype.getPageWidth = function(nPage) {
         return this.pages[nPage].W;
@@ -552,7 +559,7 @@ void main() {\n\
 
     CFile.prototype.onMouseDown = function(pageIndex, x, y)
     {
-        if (this.pages[pageIndex].isConvertedToShapes)
+        if (this.pages[pageIndex].isRecognized)
             return;
         
         let oDoc = this.viewer.getPDFDoc();
@@ -615,7 +622,7 @@ void main() {\n\
     CFile.prototype.onMouseUp = function()
     {
         this.Selection.IsSelection = false;
-        this.viewer.getPDFDoc().TextSelectTrackHandler.Update();
+        this.viewer.getPDFDoc().TextSelectTrackHandler.Update(true);
         this.onUpdateSelection();
         this.onUpdateOverlay();
 
@@ -654,6 +661,13 @@ void main() {\n\
         var stream = this.getPageTextStream(pageIndex);
         if (!stream)
             return { Line : -1, Glyph : -1 };
+
+        if (this.type === 2)
+        {
+            let k = 72 / 96;
+            x *= k;
+            y *= k;
+        }
 
         // textline parameters
         var _line = -1;
@@ -1203,7 +1217,7 @@ void main() {\n\
 
         for (let i = Page1; i <= Page2; i++) {
             var stream = this.getPageTextStream(i);
-            if (!stream || this.pages[i].isConvertedToShapes)
+            if (!stream || this.pages[i].isRecognized)
                 continue;
 
             let oInfo = {
@@ -1437,7 +1451,7 @@ void main() {\n\
     };
     CFile.prototype.drawSelection = function(pageIndex, overlay, x, y)
     {
-        if (this.pages[pageIndex].isConvertedToShapes) {
+        if (this.pages[pageIndex].isRecognized) {
             return;
         }
         
@@ -1756,7 +1770,7 @@ void main() {\n\
     {
         var stream = this.getPageTextStream(pageIndex);
         if (!stream)
-            return;
+            return "";
 
         var ret = "";
 
@@ -2033,7 +2047,7 @@ void main() {\n\
         var ret = "<div>";
         for (var i = page1; i <= page2; i++)
         {
-            if (this.pages[i].isConvertedToShapes)
+            if (this.pages[i].isRecognized)
                 continue;
 
             ret += this.copySelection(i, _text_format);
@@ -2818,6 +2832,8 @@ void main() {\n\
         var error = file.nativeFile["loadFromData"](data);
         if (0 === error)
         {
+            file.type = file.nativeFile["getType"]();
+
             file.nativeFile["onRepaintPages"] = function(pages) {
                 file.onRepaintPages && file.onRepaintPages(pages);
             };
@@ -2863,6 +2879,8 @@ void main() {\n\
         var error = file.nativeFile["loadFromDataWithPassword"](password);
         if (0 === error)
         {
+            file.type = file.nativeFile["getType"]();
+
             file.nativeFile["onRepaintPages"] = function(pages) {
                 file.onRepaintPages && file.onRepaintPages(pages);
             };
@@ -2881,7 +2899,8 @@ void main() {\n\
                 page.originRotate   = page["Rotate"];
                 page.Rotate         = page["Rotate"];
             }
-
+            file.originalPagesCount = file.pages.length;
+            
             //file.cacheManager = new AscCommon.CCacheManager();
         }
     };
