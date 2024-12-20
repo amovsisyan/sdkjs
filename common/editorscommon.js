@@ -3034,7 +3034,7 @@
 			return null;
 		}
 		// let stringArray = string.split("!");
-		let shortLinkReg = /[\<\>\?\[\]\\\/\|\*\+\"\:]/;	// reg contains special characters that are not allowed in the shortLink
+		let shortLinkReg = /[\<\>\?\[\]\\\/\|\*\+\"\:\']/;	// reg contains special characters that are not allowed in the shortLink
 
 		let exclamationMarkIndex = string.indexOf("!");
 		let externalLink = exclamationMarkIndex !== -1 ? string.substring(0, exclamationMarkIndex) : null;
@@ -3494,8 +3494,6 @@
 			}
 		}
 
-		// let shortLink = external ? null : (isExternalShortLink(subSTR) || isExternalShortLinkLocal(subSTR));
-		// let stringToCheck = external ? formula.substring(start_pos) : subSTR;
 		let shortLink = isExternalShortLink(subSTR) || (!external && isExternalShortLinkLocal(subSTR));
 		let match = XRegExp.exec(subSTR, rx_ref3D_quoted) || XRegExp.exec(subSTR, rx_ref3D_non_quoted);
 		

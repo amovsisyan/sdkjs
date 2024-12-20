@@ -1002,8 +1002,11 @@ $(function () {
 			shortLinkLocal = "'[book.xlsx]'!A1",
 			shortLinkDefnameLocal = "[book.xlsx]!_s1",
 			shortLinkDefnameLocalWithoutBrackets = "book.xlsx!_s1",
+			shortLinkDefnameLocalWithoutBrackets2 = "'book.xlsx'!_s1",
 			shortLink = "[1]!A1",
 			shortLinkDefname = "[1]!_s1",
+			shortLinkDefname2 = "'[1]'!_s1",
+			shortLinkDefname3 = "'1'!_s1",
 			externalWs;
 		
 		
@@ -1034,29 +1037,44 @@ $(function () {
 		assert.ok(oParser.parse(false/*isLocal*/, null, parseResult), "Full link. isLocal = false. " + fullLink);
 
 		oParser = new parserFormula(fullLinkDefname, cellWithFormula, ws);
-		assert.ok(oParser.parse(false/*isLocal*/, null, parseResult), "Full link to defname. isLocal = false. " + fullLinkDefname);
+		assert.ok(oParser.parse(false, null, parseResult), "Full link to defname. isLocal = false. " + fullLinkDefname);
 
 		oParser = new parserFormula(shortLink, cellWithFormula, ws);
-		assert.ok(!oParser.parse(false/*isLocal*/, null, parseResult), "Short link. isLocal = false. " + shortLink);
+		assert.ok(!oParser.parse(false, null, parseResult), "Short link. isLocal = false. " + shortLink);
 
 		oParser = new parserFormula(shortLinkDefname, cellWithFormula, ws);
-		assert.ok(oParser.parse(false/*isLocal*/, null, parseResult), "Short link to defname. isLocal = false. " + shortLinkDefname);
+		assert.ok(oParser.parse(false, null, parseResult), "Short link to defname. isLocal = false. " + shortLinkDefname);
 
 		// try parse string to external ref similiar as writing a string manually
 		oParser = new parserFormula(fullLinkLocal, cellWithFormula, ws);
 		assert.ok(oParser.parse(true/*isLocal*/, null, parseResult), "Full link. isLocal = true. " + fullLinkLocal);
 
 		oParser = new parserFormula(fullLinkDefnameLocal, cellWithFormula, ws);
-		assert.ok(oParser.parse(true/*isLocal*/, null, parseResult), "Full link to defname. isLocal = true. " + fullLinkDefnameLocal);
-
+		assert.ok(oParser.parse(true, null, parseResult), "Full link to defname. isLocal = true. " + fullLinkDefnameLocal);
+		
 		oParser = new parserFormula(shortLinkLocal, cellWithFormula, ws);
-		assert.ok(oParser.parse(true/*isLocal*/, null, parseResult) === false, "Short link. isLocal = true. " + shortLinkLocal);
+		assert.ok(oParser.parse(true, null, parseResult) === false, "Short link. isLocal = true. " + shortLinkLocal);
 
 		oParser = new parserFormula(shortLinkDefnameLocal, cellWithFormula, ws);
-		assert.ok(oParser.parse(true/*isLocal*/, null, parseResult) === false, "Short link to defname. isLocal = true. " + shortLinkDefnameLocal);
+		assert.ok(oParser.parse(true, null, parseResult) === false, "Short link to defname. isLocal = true. " + shortLinkDefnameLocal);
 
 		oParser = new parserFormula(shortLinkDefnameLocalWithoutBrackets, cellWithFormula, ws);
-		assert.ok(oParser.parse(true/*isLocal*/, null, parseResult), "Short link to defname without brackets. isLocal = true. " + shortLinkDefnameLocalWithoutBrackets);
+		assert.ok(oParser.parse(true, null, parseResult), "Short link to defname without brackets. isLocal = true. " + shortLinkDefnameLocalWithoutBrackets);
+
+		oParser = new parserFormula(shortLinkDefnameLocalWithoutBrackets2, cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult) === false, "Short link to defname without brackets and with single quotes. isLocal = true. " + shortLinkDefnameLocalWithoutBrackets2);
+
+		oParser = new parserFormula(shortLink, cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult) === false, "Short link from file as local. isLocal = true. " + shortLink);
+
+		oParser = new parserFormula(shortLinkDefname, cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult) === false, "Short link to defname from file as local. isLocal = true. " + shortLinkDefname);
+
+		oParser = new parserFormula(shortLinkDefname2, cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult) === false, "Short link to defname with quotes from file as local. isLocal = true. " + shortLinkDefname2);
+
+		oParser = new parserFormula(shortLinkDefname3, cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult) === false, "Short link to defname with quotes & without brackets from file as local. isLocal = true. " + shortLinkDefname3);
 
 		//remove external reference
 		wb.removeExternalReferences([wb.externalReferences[0].getAscLink()]);
