@@ -643,27 +643,11 @@ parserHelp.setDigitSeparator(AscCommon.g_oDefaultCultureInfo.NumberDecimalSepara
 		return false;
 	};
 	cBaseType.prototype.getExternalLinkStr = function (externalLink, locale, isShortLink) {
-		var wb = Asc["editor"] && Asc["editor"].wb;
-
-		var index = externalLink;
-		externalLink = externalLink && wb && wb.model && wb.model.getExternalLinkByIndex(index - 1, true);
-		if (externalLink && !locale) {
-			return "[" + index + "]";
+		let wb = Asc.editor && Asc.editor.wbModel;
+		if (!wb) {
+			return "";
 		}
-		var path = externalLink && externalLink.path;
-		var name = externalLink && externalLink.name;
-		var res = "";
-		if (path || name) {
-			if (path) {
-				res += path;
-			}
-			if (name) {
-				res += isShortLink ? name : "[" + name + "]";
-			}
-		} else if (externalLink) {
-			res = externalLink;
-		}
-		return res;
+		return wb && wb.externalReferenceHelper && wb.externalReferenceHelper.getExternalLinkStr(externalLink, locale, isShortLink);
 	};
 
 	cBaseType.prototype.toArray = function (putValue, checkOnError, fPrepareElem, bSaveBoolean) {
@@ -8084,47 +8068,6 @@ function parserFormula( formula, parent, _ws ) {
 
 				t.is3D = true;
 
-				let externalLink = _3DRefTmp[3];
-				let externalDefName, externalSheetName, receivedDefName, receivedLink, isShortLink;
-
-				// this argument contain shortLink object with full formula and two parts of it
-				let receivedShortLink = _3DRefTmp[4];
-				if (receivedShortLink) {
-					// receivedShortLink - the received, short formula that needs to be checked for an internal link (they have the same in structure)
-					// the link can be either to another sheet or to another book - they have the same entry
-					receivedLink = receivedShortLink.externalLink;
-					externalSheetName = receivedShortLink.externalLink;
-					receivedDefName = receivedShortLink.defname;
-				}
-
-				// This check of short links is performed only when opening/reading, manual input is processed differently
-				if (receivedShortLink && !local) {
-					let eReference = t.wb.getExternalLinkByIndex(externalLink - 1);
-					if (eReference && eReference.DefinedNames) {
-						for (let i = 0; i < eReference.DefinedNames.length; i++) {
-							if (eReference.DefinedNames[i].Name === receivedDefName) {
-								externalDefName = eReference.DefinedNames[i];
-								if (externalDefName.SheetId !== null) {
-									externalSheetName = eReference.SheetNames[eReference.DefinedNames[i].SheetId];
-								} else if (!externalDefName.SheetId && externalDefName.RefersTo) {
-									// parse string
-									let refString = externalDefName.RefersTo,
-										// regex to find a sheet name enclosed in single quotes
-										reg = /'([\S]+)'/gi,
-										regMatch = reg.exec(refString);
-
-									if (regMatch && regMatch[1]) {
-										externalSheetName = regMatch[1];
-									} else if (refString) {
-										externalSheetName = refString.split("!")[0];
-									}
-								}
-								break;
-							}
-						}
-					}
-				}
-
 				//renameSheetMap
 				if (renameSheetMap) {
 					if (renameSheetMap[_3DRefTmp[1]]) {
@@ -8138,62 +8081,21 @@ function parserFormula( formula, parent, _ws ) {
 				}
 
 				let wsF, wsT;
-				let sheetName = _3DRefTmp[1] ? _3DRefTmp[1] : externalSheetName;
-				if (!sheetName) {
+				let sheetName = _3DRefTmp[1];
+
+				let isExternalRefExist, externalLink, receivedLink, externalName, isShortLink;
+				let externalProps = t.wb && t.wb.externalReferenceHelper && t.wb.externalReferenceHelper.check3dRef(_3DRefTmp, local);
+				if (!externalProps && !sheetName) {
 					parseResult.setError(c_oAscError.ID.FrmlWrongReferences);
 					if (!ignoreErrors) {
 						t.outStack = [];
 						return false;
 					}
-				}
-
-				let isExternalRefExist;
-				let externalName = _3DRefTmp[3];
-				//check on add to this document
-				let thisTitle = externalLink && window["Asc"]["editor"] && window["Asc"]["editor"].DocInfo && window["Asc"]["editor"].DocInfo.get_Title();
-				if (thisTitle === externalLink) {
-					externalLink = null;
-				}
-					
-				// we check whether sheetName is part of the document or is it a short link to external data
-				if (local && !externalLink && receivedShortLink) {
-					// если существует лист с таким же названием, ссылаемся на него, иначе создаем внешнюю ссылку(сокращенную)
-					let innerSheet = t.wb.getWorksheetByName(sheetName);
-					if (!innerSheet) {
-						let eReference = t.wb.getExternalLinkByName(sheetName);
-						if (eReference && eReference.DefinedNames) {
-							for (let i = 0; i < eReference.DefinedNames.length; i++) {
-								if (eReference.DefinedNames[i].Name === receivedDefName) {
-									externalDefName = eReference.DefinedNames[i];
-									if (externalDefName.SheetId !== null) {
-										externalSheetName = eReference.SheetNames[eReference.DefinedNames[i].SheetId];
-									} else if (!externalDefName.SheetId && externalDefName.RefersTo) {
-										// parse string
-										let refString = externalDefName.RefersTo,
-											// regex to find a sheet name enclosed in single quotes
-											reg = /'([\S]+)'/gi,
-											regMatch = reg.exec(refString);
-	
-										if (regMatch && regMatch[1]) {
-											externalSheetName = regMatch[1];
-										} else if (refString) {
-											let externalWB = eReference.getWb();
-											let depFormulas = externalWB && externalWB.dependencyFormulas;
-											if (depFormulas && depFormulas.defNames && depFormulas.defNames.wb && depFormulas.defNames.wb[receivedDefName]) {
-												externalSheetName = refString.split("!")[0];
-											}
-										}
-									}
-									break;
-								}
-							}
-						}
-
-						sheetName = externalSheetName ? externalSheetName : receivedLink.split(".")[0];
-						externalName = receivedLink;
-						externalLink = receivedLink;
-						isShortLink = true;
-					}
+				} else if (externalProps) {
+					externalLink = externalProps.externalLink;
+					receivedLink = externalProps.receivedLink;
+					externalName = externalProps.externalName;
+					isShortLink = externalProps.externalName;
 				}
 				
 				if (externalLink) {
