@@ -616,6 +616,7 @@ function(window, undefined) {
 		let oStyle = null, oLbl, fMinW;
 		let oFirstTextPr = null;
 
+		// set text properties for the label
 		const setTextProperties = (oLbl) => {
 			if (!oLbl) {
 				return;
@@ -639,6 +640,7 @@ function(window, undefined) {
 			}
 		};
 
+		// calculate max width of the label
 		const recalculateMinWidth = (oLbl) => {
 			const minWidth = oLbl.tx && oLbl.tx.rich && oLbl.tx.rich.content && oLbl.tx.rich.content.RecalculateMinMaxContentWidth ? oLbl.tx.rich.content.RecalculateMinMaxContentWidth().Min : 0;
 			if (minWidth > this.maxMinWidth) {
@@ -772,8 +774,8 @@ function(window, undefined) {
 					oTransform = oLabel.localTransformText;
 					oTransform.Reset();
 					global_MatrixTransformer.TranslateAppend(oTransform, fX, fY);
-	
 
+					// find the first and last labels positions
 					if (oFirstLabel !== null) {
 						oLastLabel = oLabel;
 						fLastLabelCenterX = fCurX + Math.abs(fInterval) / 2.0;
@@ -1623,7 +1625,7 @@ function(window, undefined) {
 			const nAxisType = oLabelsBox && oLabelsBox.axis ? oLabelsBox.axis.getObjectType() : null;
 			const sDataType = oLabelsBox.getLabelsDataType();
 
-			// if axis type is valAx change the fAxisLength
+			// if axis type is valAx change the fAxisLength, based on the width of the first and last label
 			if (nAxisType === AscDFH.historyitem_type_ValAx) {
 				const aLabels = oLabelsBox.aLabels;
 				// maxLabelWidth is a big number to get the max width of the label
@@ -2375,50 +2377,6 @@ function(window, undefined) {
 		}
 	};
 
-	CChartSpace.prototype._roundValue = function (num, isStrong, precision) {
-		if (num !== 0 && (!num || !isFinite(num))) {
-			return 1;
-		}
-
-		if (num === 0) {
-			return num;
-		}
-
-		// if num is negative
-		let isNegative = false;
-		if (num < 0) {
-			isNegative = true;
-			num = -num;
-		}
-
-		if (!precision || precision < 0) {
-			//default precision is 9! 
-			precision = 9;
-		}
-
-		let count = 0;
-
-		// Normalize the number by adjusting its scale
-		if (isStrong) {
-			while (num >= 10) {
-				num /= 10;
-				count++;
-			}
-		}
-
-		while (num < 1) {
-			num *= 10;
-			count--;
-		}
-
-		// Round the number to two decimal places
-		const kF = Math.pow(10, precision);
-		const roundedNum = Math.round(num * kF) / kF;
-
-		// Return the normalized number with the appropriate scale
-		num = (count >= 0) ? roundedNum * Math.pow(10, count) : roundedNum / Math.pow(10, -count);
-		return isNegative ? -num : num;
-	};
 	CChartSpace.prototype.recalculateTextPr = function () {
 		if (this.txPr && this.txPr.content) {
 			this.txPr.content.Reset(0, 0, 10, 10);
@@ -11894,7 +11852,7 @@ function(window, undefined) {
 		this.bCalculated = false;
 		this.fLabelHeight = null;
 		this.fLabelWidth = null;
-		//decisionBoundary states a threshold for the diagonal label width;
+		//fAutoRotationThreshold states a threshold for the diagonal label width; for some strange reason DateAx has higher threshold value
 		this.fAutoRotationThreshold = (this.nAxisType === AscDFH.historyitem_type_DateAx) ? 2.5 : 2;
 		// fSpaceBetweenLabels stands for the amount of additional space that label should have, other than the width of its content;
 		// left space + right space = this.fSpaceBetweenLabels
@@ -11903,6 +11861,7 @@ function(window, undefined) {
 		this.maxLabelWidth = 20000;
 	}
 
+	// the values are obtain by experimenting with tons of the diagrams for each type of axis.
 	CLabelsParameters.prototype.getSpaceBetweenLabels = function () {
 		switch (this.nAxisType){
 			case (AscDFH.historyitem_type_DateAx):
@@ -11918,6 +11877,7 @@ function(window, undefined) {
 		// get height of label
 		this.bCalculated = !!nIndex;
 
+		// check if current settings are applicable for new axisLength, if yes then no need for calculating new settings
 		if (this.valid && this.isIncorrectlyCalculated(oLabelsBox, fAxisLength, nIndex)) {
 
 			// get labelHeight
@@ -11939,7 +11899,6 @@ function(window, undefined) {
 		}
 	};
 
-	// function to check whether new Label axis will handle old parameters
 	CLabelsParameters.prototype.isIncorrectlyCalculated = function (oLabelsBox, fAxisLength, nIndex) {
 		if (!this.bCalculated) {
 			return true;
@@ -11952,6 +11911,7 @@ function(window, undefined) {
 
 		// sometimes it is possible that new fAxisLength is enough for current nLabelsCount
 		if (this.nLblTickSkip && this.nLabelsCount !== 0) {
+			// valAxis has additional space between labels, therefore its calculations are different
 			if (this.nAxisType === AscDFH.historyitem_type_ValAx) {
 				return this.bCalculated = Math.ceil(this.nLabelsCount / this.nLblTickSkip) * (this.fLabelWidth + this.fSpaceBetweenLabels) >= (fAxisLength + this.fSpaceBetweenLabels);
 			} else {
@@ -12181,7 +12141,7 @@ function(window, undefined) {
 			return;
 		}
 
-		// valAx recalcute the labels, rather than skipping a portion of them as other labels
+		// valAx recalcutes the labels, rather than skipping a portion of them as other labels
 		if (this.nAxisType === AscDFH.historyitem_type_ValAx){
 			const isSingleLabel = this.recalculateLabels(oLabelsBox, fAxisLength);
 			this.nLblTickSkip = isSingleLabel ? 2 : 1;
@@ -12189,6 +12149,7 @@ function(window, undefined) {
 			return;
 		}
 
+		// all other labels simply skips some of the labels that can not be placed inside the axisLength
 		if (!this.isUserDefinedTickSkip) {
 			this.nLblTickSkip = this.manuallyCalculateNLblTickSkip(oLabelsBox, fAxisLength);
 		} 
@@ -12258,6 +12219,7 @@ function(window, undefined) {
 			return;
 		}
 
+		// val axis has huge spaces between labels therefore can not be autorotated
 		if (this.isUserDefinedRot || this.nAxisType === AscDFH.historyitem_type_ValAx) {
 			return;
 		}

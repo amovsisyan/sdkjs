@@ -2438,12 +2438,16 @@
 	CDLbl.prototype.notAllowedWithoutId = function() {
 		return false;
 	};
+
+    // function to get label content width without accessing inner fields of CDLbl
     CDLbl.prototype.getContentWidth = function() {
         if (!this.tx || !this.tx.rich || !this.getContentWidth) {
             return 0;
         }
         return this.tx.rich.getContentWidth();
     };
+
+    // function to get label max content width without accessing inner fields of CDLbl
     CDLbl.prototype.getMaxContentWidth = function(maxWidth, bLeft) {
         if (!this.tx || !this.tx.rich || !this.getMaxContentWidth) {
             return 0;
