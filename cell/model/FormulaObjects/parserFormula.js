@@ -2856,18 +2856,14 @@ parserHelp.setDigitSeparator(AscCommon.g_oDefaultCultureInfo.NumberDecimalSepara
 	cName3D.prototype.toString = function () {
 		let exPath = this.getExternalLinkStr(this.externalLink);
 		let wsName = this.ws && this.ws.getName();
-		if (this.shortLink) {
-			return parserHelp.getEscapeSheetName(exPath, this.shortLink) + "!" + cName.prototype.toString.call(this);
-		}
-		return parserHelp.getEscapeSheetName(exPath + wsName) + "!" + cName.prototype.toString.call(this);
+		/* short links returns without wsName */
+		return parserHelp.getEscapeSheetName(this.shortLink ? exPath : (exPath + wsName)) + "!" + cName.prototype.toLocaleString.call(this);
 	};
 	cName3D.prototype.toLocaleString = function () {
 		let exPath = this.getExternalLinkStr(this.externalLink, true, this.shortLink);
 		let wsName = this.ws && this.ws.getName();
-		if (this.shortLink) {
-			return parserHelp.getEscapeSheetName(exPath, this.shortLink) + "!" + cName.prototype.toLocaleString.call(this);
-		}
-		return parserHelp.getEscapeSheetName(exPath + wsName) + "!" + cName.prototype.toLocaleString.call(this);
+		/* short links returns without wsName */
+		return parserHelp.getEscapeSheetName(this.shortLink ? exPath : (exPath + wsName)) + "!" + cName.prototype.toLocaleString.call(this);
 	};
 	cName3D.prototype.getWsId = function () {
 		return this.ws && this.ws.Id;

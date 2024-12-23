@@ -3982,13 +3982,8 @@
 		}
 	};
 // Возвращает экранируемое название листа
-	parserHelper.prototype.getEscapeSheetName = function (sheet, shortLink)
+	parserHelper.prototype.getEscapeSheetName = function (sheet)
 	{
-		/* short links are not wrapped in quotes */
-		if (shortLink) {
-			return rx_test_ws_name.test(sheet) ? sheet : sheet.replace(/'/g, "''");
-		}
-
 		return rx_test_ws_name.test(sheet) ? sheet : "'" + sheet.replace(/'/g, "''") + "'";
 	};
 	/**
