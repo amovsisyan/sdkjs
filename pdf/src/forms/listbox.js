@@ -195,10 +195,9 @@
     CListBoxField.prototype.Commit = function() {
         let oDoc    = this.GetDocument();
         let aFields = oDoc.GetAllWidgets(this.GetFullName());
-        let oThis   = this;
         
         let aCurIdxs = this.GetCurIdxs();
-        let aApiIdxs = this.GetApiCurIdxs();
+        let aApiIdxs = this.GetParentCurIdxs();
 
         this.ScrollVerticalEnd(true);
         let isChanged = false;
@@ -208,54 +207,53 @@
                 break;
             }
         }
+        if (!isChanged) {
+            return;
+        }
 
-        if (isChanged) {
-            oDoc.History.Add(new CChangesPDFListFormCurIdxs(this, this.GetApiCurIdxs(), aCurIdxs));
-            this._bAutoShiftContentView = true;
-            
-            if (false == oDoc.History.UndoRedoInProgress) {
-                this._bUpdateTopIndex = true;
-            }
+        for (let i = 0; i < aFields.length; i++) {
+            aFields[i].SetWasChanged(true);
+            aFields[i].SetNeedRecalc(true);
 
-            this.SetApiValue(this.GetValue());
-            this.SetApiCurIdxs(aCurIdxs);
+            aFields[i].SetCurIdxs(aCurIdxs);
+            aFields[i]._bAutoShiftContentView = true;
+            aFields[i].SetNeedUpdateTopIndex(true);
         }
         
-        oDoc.StartNoHistoryMode();
+        this._bAutoShiftContentView = true;
+        
+        this.SetParentValue(this.GetValue());
+        this.SetApiCurIdxs(aCurIdxs);
+    };
+    CListBoxField.prototype.SetNeedUpdateTopIndex = function(bUpdate) {
+        this._bUpdateTopIndex = bUpdate;
 
-        aFields.forEach(function(field) {
-            field.SetWasChanged(true);
-            field.SetNeedRecalc(true);
-            if (field.HasShiftView()) {
-                if (field == oThis) {
-                    field.AddToRedraw();
-                    return;
-                }
-            }
-
-            if (oThis == field)
-                return;
-
-            field.SetCurIdxs(aCurIdxs);
-            field._bAutoShiftContentView = true;
-        });
-
-        oDoc.EndNoHistoryMode();
+        if (true == bUpdate) {
+            Asc.editor.incrementCounterLongAction();
+        }
+        else {
+            Asc.editor.decrementCounterLongAction();
+        }
+    };
+    CListBoxField.prototype.IsNeedUpdateTopIndex = function() {
+        return this._bUpdateTopIndex;
     };
     CListBoxField.prototype.UpdateTopIndex = function() {
         let oParaBounds     = this.content.GetElement(0).GetPageBounds(0);
         let nHeightPerPara  = oParaBounds.Bottom - oParaBounds.Top;
-        let nTopIndex       = -this._curShiftView.y / nHeightPerPara; // количество смещений в параграфах
+        let nTopIndex       = Math.round(-this._curShiftView.y / nHeightPerPara); // количество смещений в параграфах
         
-        AscCommon.History.Add(new CChangesPDListTopIndex(this, this.GetTopIndex(), nTopIndex));
+        AscCommon.History.Add(new CChangesPDFListTopIndex(this, this.GetTopIndex(), nTopIndex));
         this._topIdx = nTopIndex;
+
+        this.SetNeedUpdateTopIndex(false);
     };
     CListBoxField.prototype.GetTopIndex = function() {
         return this._topIdx;
     };
     CListBoxField.prototype.SetTopIndex = function(nTopIndex) {
         // Обновляем _topIdx и добавляем изменение в историю
-        AscCommon.History.Add(new CChangesPDListTopIndex(this, this.GetTopIndex(), nTopIndex));
+        AscCommon.History.Add(new CChangesPDFListTopIndex(this, this.GetTopIndex(), nTopIndex));
         this._topIdx = nTopIndex;
         this._bAutoShiftContentView = false;
         this._bShiftByTopIndex = true;
@@ -416,13 +414,13 @@
             }
 
             if (editor.getDocumentRenderer().IsOpenFormsInProgress) {
-                this.SetApiValue(value);
+                this.SetParentValue(value);
                 this.SetApiCurIdxs(aIndexes);
             }
                 
         }
         else {
-            this.SetApiValue(value);
+            this.SetParentValue(value);
             this.SetApiCurIdxs(aIndexes);
         }
     };
@@ -809,9 +807,8 @@
             this._internalMargins.bottom = Math.min(nCurMarginBottom, (oFormBounds.Y + oFormBounds.H) - (oParagraph.Y + oCurParaHeight));
         }
 
-        if (this._bUpdateTopIndex) {
+        if (this.IsNeedUpdateTopIndex()) {
             this.UpdateTopIndex();
-            this._bUpdateTopIndex = false;
         }
     };
     /**
@@ -868,6 +865,10 @@
     };
     CListBoxField.prototype.SetCurIdxs = function(aIdxs) {
         if (this.IsWidget()) {
+            let oDoc = this.GetDocument();
+            oDoc.History.Add(new CChangesPDFListFormCurIdxs(this, this.GetParentCurIdxs(), aIdxs));
+
+            oDoc.History.StartNoHistoryMode();
             // сначала снимаем выделение с текущих
             let aCurIdxs = this.GetCurIdxs();
             for (let i = 0; i < aCurIdxs.length; i++) {
@@ -881,6 +882,7 @@
                 }
             }
             
+            oDoc.History.EndNoHistoryMode();
             if (editor.getDocumentRenderer().IsOpenFormsInProgress)
                 this.SetApiCurIdxs(aIdxs);
         }
@@ -951,7 +953,7 @@
         this.WriteToBinaryBase(memory);
         this.WriteToBinaryBase2(memory);
 
-        let value = this.GetApiValue(false);
+        let value = this.GetParentValue(false);
         if (value != null && Array.isArray(value) == false) {
             memory.fieldDataFlags |= (1 << 9);
             memory.WriteString(value);
@@ -980,7 +982,7 @@
         // массив I (выделенные значения списка)
         let curIdxs;
         if ([AscPDF.FIELD_TYPES.combobox, AscPDF.FIELD_TYPES.listbox].includes(this.GetType())) {
-            curIdxs = this.GetApiCurIdxs(false);
+            curIdxs = this.GetParentCurIdxs(false);
         }
         if (curIdxs) {
             memory.fieldDataFlags |= (1 << 14);
