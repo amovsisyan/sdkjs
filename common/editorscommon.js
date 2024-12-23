@@ -3019,15 +3019,21 @@
 			return null;
 		}
 
-		let defname = string.slice(1);
-		if (!AscCommon.rx_defName.test(defname)) {
+		let secondPartOfString = string.slice(1);
+		let defname = XRegExp.exec(secondPartOfString, rx_name);
+
+		if (defname && defname["name"]) {
+			defname = defname["name"];
+		}
+
+		if (!defname || !AscCommon.rx_defName.test(defname)) {
 			return null;
 		}
 
 		return {
-			fullString: string,
 			externalLink: "",
-			defname: defname
+			defname: defname,
+			fullString: "!" + defname,
 		}
 	}
 
@@ -3037,11 +3043,17 @@
 		if (!string) {
 			return null;
 		}
-		let shortLinkReg = /[\<\>\?\[\]\\\/\|\*\+\"\:\']/;	// reg contains special characters that are not allowed in the shortLink
+
+		let shortLinkReg = /[\<\>\?\[\]\\\/\|\*\+\"\:\'\(\)]/;	// reg contains special characters that are not allowed in the shortLink
 
 		let exclamationMarkIndex = string.indexOf("!");
 		let externalLink = exclamationMarkIndex !== -1 ? string.substring(0, exclamationMarkIndex) : null;
-		let defname = exclamationMarkIndex !== -1 ? string.substring(exclamationMarkIndex + 1) : null;
+		let secondPartOfString = exclamationMarkIndex !== -1 ? string.substring(exclamationMarkIndex + 1) : null;
+
+		let defname = XRegExp.exec(secondPartOfString, rx_name);
+		if (defname && defname["name"]) {
+			defname = defname["name"];
+		}
 
 		if (externalLink && externalLink[0] === "'" && externalLink[externalLink.length - 1] === "'") {
 			externalLink = externalLink.substring(1, externalLink.length - 1);
@@ -3051,17 +3063,10 @@
 			return null;
 		}
 
-		// check if the second part can be defname - parserHelp.isName()
-		let ph = {operand_str: defname, pCurrPos: 0};
-		let canBeDefName = parserHelp.isName.call(ph, defname, ph.pCurrPos);
-		if (!canBeDefName) {
-			return null;
-		}
-
 		return {
-			fullString: string,
 			externalLink: externalLink,
-			defname: defname
+			defname: defname,
+			fullString: externalLink + "!" + defname
 		}
 	}
 

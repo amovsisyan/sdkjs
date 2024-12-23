@@ -1076,6 +1076,19 @@ $(function () {
 		oParser = new parserFormula(shortLinkDefnameWithoutBrackets, cellWithFormula, ws);
 		assert.ok(oParser.parse(true, null, parseResult), "Short link to defname with quotes & without brackets from file as local. isLocal = true. " + shortLinkDefnameWithoutBrackets);
 
+		// inside the formula tests
+		oParser = new parserFormula("SUM(test.xlsx!_s1)", cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult), "SUM(test.xlsx!_s1). isLocal = true");
+
+		oParser = new parserFormula("SUM('test.xlsx'!_s1)", cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult), "SUM('test.xlsx'!_s1). isLocal = true");
+
+		oParser = new parserFormula("SUM(test.xlsx!_s1,2,3)", cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult), "SUM(test.xlsx!_s1,2,3). isLocal = true");
+
+		oParser = new parserFormula("SUM('test.xlsx'!_s1,2,3)", cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult), "SUM('test.xlsx'!_s1,2,3). isLocal = true");
+
 		//remove external reference
 		wb.removeExternalReferences([wb.externalReferences[0].getAscLink()]);
 		assert.strictEqual(wb.externalReferences.length, 0);
