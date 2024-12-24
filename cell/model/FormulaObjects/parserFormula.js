@@ -2841,7 +2841,7 @@ parserHelp.setDigitSeparator(AscCommon.g_oDefaultCultureInfo.NumberDecimalSepara
 		let exPath = this.getExternalLinkStr(this.externalLink);
 		let wsName = this.ws && this.ws.getName();
 		/* short links returns without wsName */
-		return parserHelp.getEscapeSheetName(this.shortLink ? exPath : (exPath + wsName)) + "!" + cName.prototype.toLocaleString.call(this);
+		return parserHelp.getEscapeSheetName(this.shortLink ? exPath : (exPath + wsName), this.shortLink) + "!" + cName.prototype.toLocaleString.call(this);
 	};
 	cName3D.prototype.toLocaleString = function () {
 		let exPath = this.getExternalLinkStr(this.externalLink, true, this.shortLink);
@@ -8089,11 +8089,16 @@ function parserFormula( formula, parent, _ws ) {
 					}
 				} else if (externalProps) {
 					externalLink = externalProps.externalLink;
-					receivedLink = externalProps.receivedLink;
 					externalName = externalProps.externalName;
-					isShortLink = externalProps.externalName;
+					receivedLink = externalProps.receivedLink;
+					isShortLink = externalProps.isShortLink;
+					sheetName = sheetName ? sheetName : externalProps.sheetName;
 				}
 				
+				if (!sheetName && isShortLink) {
+					sheetName = externalName;
+				}
+
 				if (externalLink) {
 					if (local) {
 						externalLink = t.wb.getExternalLinkIndexByName(externalLink);

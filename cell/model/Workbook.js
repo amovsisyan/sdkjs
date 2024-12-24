@@ -23626,7 +23626,7 @@
 			}
 		}
 
-		return {externalLink: externalLink, receivedLink: receivedLink, externalName: externalName, isShortLink: isShortLink};
+		return {sheetName: sheetName, externalLink: externalLink, receivedLink: receivedLink, externalName: externalName, isShortLink: isShortLink};
 	};
 
 	// Export

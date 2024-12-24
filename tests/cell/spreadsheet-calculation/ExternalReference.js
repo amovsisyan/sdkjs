@@ -1045,6 +1045,19 @@ $(function () {
 		oParser = new parserFormula(shortLinkDefname, cellWithFormula, ws);
 		assert.ok(oParser.parse(false, null, parseResult), "Short link to defname. isLocal = false. " + shortLinkDefname);
 
+		// inside the formula tests
+		oParser = new parserFormula("SUM([1]!_s1)", cellWithFormula, ws);
+		assert.ok(oParser.parse(false, null, parseResult), "SUM([1]!_s1). isLocal = false");
+
+		oParser = new parserFormula("SUM('[1]'!_s1)", cellWithFormula, ws);
+		assert.ok(oParser.parse(false, null, parseResult) === false, "SUM('[1]'!_s1). isLocal = false");
+
+		oParser = new parserFormula("SUM([1]!_s1,2,3)", cellWithFormula, ws);
+		assert.ok(oParser.parse(false, null, parseResult), "SUM([1]!_s1,2,3). isLocal = false");
+
+		oParser = new parserFormula("SUM('[1]'!_s1,2,3)", cellWithFormula, ws);
+		assert.ok(oParser.parse(false, null, parseResult) === false, "SUM('[1]'!_s1,2,3). isLocal = false");
+
 		// try parse string to external ref similiar as writing a string manually
 		oParser = new parserFormula(fullLinkLocal, cellWithFormula, ws);
 		assert.ok(oParser.parse(true/*isLocal*/, null, parseResult), "Full link. isLocal = true. " + fullLinkLocal);

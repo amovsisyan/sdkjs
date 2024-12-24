@@ -3987,8 +3987,11 @@
 		}
 	};
 // Возвращает экранируемое название листа
-	parserHelper.prototype.getEscapeSheetName = function (sheet)
+	parserHelper.prototype.getEscapeSheetName = function (sheet, shortLink)
 	{
+		if (shortLink) {
+			return rx_test_ws_name.test(sheet) ? sheet : sheet.replace(/'/g, "''");
+		}
 		return rx_test_ws_name.test(sheet) ? sheet : "'" + sheet.replace(/'/g, "''") + "'";
 	};
 	/**
