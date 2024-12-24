@@ -3150,7 +3150,20 @@ parserHelp.setDigitSeparator(AscCommon.g_oDefaultCultureInfo.NumberDecimalSepara
 	};
 	cArray.prototype.getDimensions = function (getRealSize) {
 		let realSize = getRealSize ? this.getRealArraySize() : false;
-		return {col: realSize ? realSize.col : this.getCountElementInRow(), row: realSize ? realSize.row : this.getRowCount()};
+		let col, row;
+		if (!realSize) {
+			col = this.getCountElementInRow();
+			if (!col) {
+				col = 1;
+			}
+
+			row = this.getRowCount();
+			if (!row) {
+				row = 1;
+			}
+		}
+
+		return {col: realSize ? realSize.col : col, row: realSize ? realSize.row : row};
 	};
 	cArray.prototype.fillMatrix = function (replace_empty) {
 		let maxColCount = Math.max.apply(null, this.countElementInRow);
@@ -8092,11 +8105,10 @@ function parserFormula( formula, parent, _ws ) {
 					externalName = externalProps.externalName;
 					receivedLink = externalProps.receivedLink;
 					isShortLink = externalProps.isShortLink;
-					sheetName = sheetName ? sheetName : externalProps.sheetName;
 				}
 				
-				if (!sheetName && isShortLink) {
-					sheetName = externalName;
+				if (!sheetName) {
+					sheetName = isShortLink ? externalName : externalProps.sheetName;
 				}
 
 				if (externalLink) {

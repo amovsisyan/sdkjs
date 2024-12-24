@@ -736,7 +736,7 @@ $(function () {
 
 		res = oParser.calculate();
 		let dimension = res.getDimensions();
-		assert.strictEqual(dimension.row, 0, 'IMPORTRANGE_1_after_add_references_row_count');
+		assert.strictEqual(dimension.row, 1, 'IMPORTRANGE_1_after_add_references_row_count');
 
 		initReference(wb.externalReferences[0], "Sheet1", "A1", [[1000]]);
 		res = oParser.calculate();
@@ -1032,7 +1032,7 @@ $(function () {
 		// defNames.wb[this.Name].getRef();
 		// wb.externalReferences[0].addDefName()
 
-		// try to parse string to external ref similiar as read the file
+		// local = false. Read/open file with formulas. Try to parse string to external ref similiar as read the file
 		oParser = new parserFormula(fullLink, cellWithFormula, ws);
 		assert.ok(oParser.parse(false/*isLocal*/, null, parseResult), "Full link. isLocal = false. " + fullLink);
 
@@ -1058,7 +1058,7 @@ $(function () {
 		oParser = new parserFormula("SUM('[1]'!_s1,2,3)", cellWithFormula, ws);
 		assert.ok(oParser.parse(false, null, parseResult) === false, "SUM('[1]'!_s1,2,3). isLocal = false");
 
-		// try parse string to external ref similiar as writing a string manually
+		// local = true. Manual input. Try parse string to external ref similiar as writing a string manually
 		oParser = new parserFormula(fullLinkLocal, cellWithFormula, ws);
 		assert.ok(oParser.parse(true/*isLocal*/, null, parseResult), "Full link. isLocal = true. " + fullLinkLocal);
 
@@ -1089,6 +1089,18 @@ $(function () {
 		oParser = new parserFormula(shortLinkDefnameWithoutBrackets, cellWithFormula, ws);
 		assert.ok(oParser.parse(true, null, parseResult), "Short link to defname with quotes & without brackets from file as local. isLocal = true. " + shortLinkDefnameWithoutBrackets);
 
+		oParser = new parserFormula("book(20).xlsx!_s1", cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult) === false, "book(20).xlsx!_s1. isLocal = true");
+
+		oParser = new parserFormula("'book(20).xlsx'!_s1", cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult), "'book(20).xlsx'!_s1. isLocal = true");
+
+		oParser = new parserFormula("123book(20).xlsx!_s1", cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult) === false, "123book(20).xlsx!_s1. isLocal = true");
+
+		oParser = new parserFormula("'123book(20).xlsx'!_s1", cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult), "'123book(20).xlsx'!_s1. isLocal = true");
+
 		// inside the formula tests
 		oParser = new parserFormula("SUM(test.xlsx!_s1)", cellWithFormula, ws);
 		assert.ok(oParser.parse(true, null, parseResult), "SUM(test.xlsx!_s1). isLocal = true");
@@ -1101,6 +1113,31 @@ $(function () {
 
 		oParser = new parserFormula("SUM('test.xlsx'!_s1,2,3)", cellWithFormula, ws);
 		assert.ok(oParser.parse(true, null, parseResult), "SUM('test.xlsx'!_s1,2,3). isLocal = true");
+
+		oParser = new parserFormula("SUM(test(20).xlsx!_s1,2,3)", cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult) === false, "SUM(test(20).xlsx!_s1,2,3). isLocal = true");
+
+		oParser = new parserFormula("SUM('test(20).xlsx'!_s1,2,3)", cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult), "SUM('test(20).xlsx'!_s1,2,3). isLocal = true");
+
+		oParser = new parserFormula("SUM(123test(20).xlsx!_s1,2,3)", cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult) === false, "SUM(123test(20).xlsx!_s1,2,3). isLocal = true");
+
+		oParser = new parserFormula("SUM('123test(20).xlsx'!_s1,2,3)", cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult), "SUM('123test(20).xlsx'!_s1,2,3). isLocal = true");
+
+		// todo on the desktop, the file selection window opens three times, one after another
+		oParser = new parserFormula("SUM(book.xlsx!_s1,book2.xlsx!_s2,book3.xlsx!_s3)", cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult), "SUM(book.xlsx!_s1,book2.xlsx!_s2,book3.xlsx!_s3). isLocal = true");
+
+		oParser = new parserFormula("SUM('book.xlsx'!_s1,book2.xlsx!_s2,book3.xlsx!_s3)", cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult), "SUM('book.xlsx'!_s1,book2.xlsx!_s2,book3.xlsx!_s3). isLocal = true");
+
+		oParser = new parserFormula("SUM('123test(20).xlsx'!_s1, 123test(20).xlsx!_s1)", cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult) === false, "SUM('123test(20).xlsx'!_s1, 123test(20).xlsx!_s1). isLocal = true");
+
+		oParser = new parserFormula("SUM('123test(20).xlsx'!_s1, '123test(20).xlsx'!_s1)", cellWithFormula, ws);
+		assert.ok(oParser.parse(true, null, parseResult), "SUM('123test(20).xlsx'!_s1, '123test(20).xlsx'!_s1). isLocal = true");
 
 		//remove external reference
 		wb.removeExternalReferences([wb.externalReferences[0].getAscLink()]);

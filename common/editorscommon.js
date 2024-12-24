@@ -3044,8 +3044,9 @@
 			return null;
 		}
 
-		let shortLinkReg = /[\<\>\?\[\]\\\/\|\*\+\"\:\'\(\)]/;	// reg contains special characters that are not allowed in the shortLink
+		let shortLinkReg = /[\<\>\?\[\]\\\/\|\*\+\"\:\']/;	// reg contains special characters that are not allowed in the shortLink
 
+		let linkInQuotes;
 		let exclamationMarkIndex = string.indexOf("!");
 		let externalLink = exclamationMarkIndex !== -1 ? string.substring(0, exclamationMarkIndex) : null;
 		let secondPartOfString = exclamationMarkIndex !== -1 ? string.substring(exclamationMarkIndex + 1) : null;
@@ -3057,16 +3058,22 @@
 
 		if (externalLink && externalLink[0] === "'" && externalLink[externalLink.length - 1] === "'") {
 			externalLink = externalLink.substring(1, externalLink.length - 1);
+			linkInQuotes = true;
 		}
 
 		if (!externalLink || !defname || shortLinkReg.test(externalLink) || !AscCommon.rx_defName.test(defname)) {
 			return null;
 		}
 
+		// external link without quotes is parsed using a regular parser for the name
+		if (!linkInQuotes && !rx_test_ws_name.test(externalLink)) {
+			return null;
+		}
+
 		return {
 			externalLink: externalLink,
 			defname: defname,
-			fullString: externalLink + "!" + defname
+			fullString: linkInQuotes ? ("'" + externalLink + "'" + "!" + defname) : (externalLink + "!" + defname)
 		}
 	}
 
