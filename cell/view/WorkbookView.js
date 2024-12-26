@@ -5339,7 +5339,7 @@
 		}
 		if (val) {
 			let timeout = 30000;
-			this.externalReferenceUpdateTimer = setTimeout(function () {
+			oThis.externalReferenceUpdateTimer = setTimeout(function () {
 				oThis.updateExternalReferences(oThis.getExternalReferences());
 				//we are waiting update, after reinit timer
 				oThis.clearExternalReferenceUpdateTimer();
