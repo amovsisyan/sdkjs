@@ -1646,6 +1646,8 @@ function(window, undefined) {
 				const fLabelWidth =  fAxisLength / Math.ceil(oLabelParams.nLabelsCount / oLabelParams.nLblTickSkip);
 				// if userDefinedTickSkip then each label has same width as axislength
 				fForceContentWidth_ = oLabelParams.isUserDefinedTickSkip ? fAxisLength : fLabelWidth;
+
+				// val axis changes the labels therefore update start and interval
 				fInterval = (nAxisType === AscDFH.historyitem_type_ValAx) && oLabelsBox.axis && oLabelsBox.axis.grid ? oLabelsBox.axis.grid.fStride : fInterval;
 			}
 			if (statement) {
@@ -12120,15 +12122,35 @@ function(window, undefined) {
 				// rebuild labels and grid
 				oLabelsBox.initializeLabels(aStrings, oLabelsBox.axis, oLabelsBox.chartSpace);
 
+				// find cross starting at point
+				const oCrossAx = oLabelsBox.axis.crossAx;
+				let startingPoint = 0;
+				let startingPointForAxis = 0;
+
 				//restructure grid
 				const oGrid = oLabelsBox.axis.grid;
 				if (oGrid && aStrings.length > 1) {
+
+					// find previous startingPoint for crossAx
+					if (oCrossAx && AscFormat.isRealNumber(oCrossAx.posX)) {
+						startingPointForAxis = oCrossAx.labels && oCrossAx.labels.x ? oCrossAx.posX - oCrossAx.labels.x : oCrossAx.posX;
+						startingPoint = (((oCrossAx.posX - oGrid.fStart) * nStep) / oGrid.fStride) + oLabelsBox.axis.scale[0];
+					}
+
 					const nNewCount = aStrings.length - 1;
 					oGrid.aStrings = aStrings;
 					oGrid.fStride = (oGrid.nCount * oGrid.fStride) / nNewCount;
 					oGrid.nCount = nNewCount;
 				}
 				this.nLabelsCount = oLabelsBox.count;
+
+				// crossAxis should also be affected by restructured valAx
+				if (oCrossAx) {
+					oCrossAx.posX = (((startingPoint - oLabelsBox.axis.scale[0]) / newStep) * oGrid.fStride + oGrid.fStart);
+					if (oCrossAx.labels && oCrossAx.labels.extX) {
+						oCrossAx.labels.x = oCrossAx.posX - startingPointForAxis;
+					}
+				}
 			}
 		}
 		return isSingleLabel;
