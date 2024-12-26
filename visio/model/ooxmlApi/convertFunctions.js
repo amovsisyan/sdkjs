@@ -266,8 +266,8 @@
 			 * @param textCShape
 			 */
 			function parseParagraphAndAddToShapeContent(propsRowNum, paragraphPropsCommon, textCShape) {
-				if (paragraphPropsCommon === null) {
-					AscCommon.consoleLog("paragraphPropsCommon is null. Creating default paragraph");
+				if (paragraphPropsCommon === null || paragraphPropsCommon === undefined) {
+					AscCommon.consoleLog("paragraphPropsCommon is null or undefined. Creating default paragraph");
 					// create new paragraph to hold new properties
 					let oContent = textCShape.getDocContent();
 					let paragraph = new Paragraph(textCShape.getDrawingDocument(), true);
@@ -407,7 +407,7 @@
 				// handle lang
 				let oNewLang = new CLang();
 				let languageCell = characterPropsFinal && characterPropsFinal.getCell("LangID");
-				let languageId = Asc.g_oLcidNameToIdMap[languageCell.v];
+				let languageId = languageCell ? Asc.g_oLcidNameToIdMap[languageCell.v] : 1033;
 				// switch (languageCell.v) {
 				// 	case "ru-RU":
 				// 		languageId = 1049;
@@ -511,6 +511,28 @@
 					oRun.Pr.Italic = Boolean(Number(styleVsdx) & 2);
 					oRun.Pr.Underline = Boolean(Number(styleVsdx) & 4);
 					oRun.Pr.SmallCaps = Boolean(Number(styleVsdx) & 8);
+				}
+
+				// handle Strikethru
+				const strikeVsdx = characterPropsFinal && characterPropsFinal.getCellStringValue("Strikethru");
+				oRun.Pr.Strikeout = strikeVsdx === "1";
+
+				// handle DoubleStrikethrough
+				const doubleStrikeVsdx = characterPropsFinal && characterPropsFinal.getCellStringValue("DoubleStrikethrough");
+				oRun.Pr.DStrikeout = doubleStrikeVsdx === "1";
+
+				// handle Caps
+				const caseVsdx = characterPropsFinal && characterPropsFinal.getCellStringValue("Case");
+				oRun.Pr.Caps = caseVsdx === "1";
+
+				// handle VertAlign (doesn't work I don't know why)
+				const posVsdx = characterPropsFinal && characterPropsFinal.getCellStringValue("Pos");
+				if (posVsdx === "1") {
+					oRun.Pr.VertAlign = AscCommon.vertalign_SuperScript;
+				} else if (posVsdx === "2") {
+					oRun.Pr.VertAlign = AscCommon.vertalign_SubScript;
+				} else {
+					oRun.Pr.VertAlign = AscCommon.vertalign_Baseline;
 				}
 			}
 
@@ -967,11 +989,13 @@
 
 			let globalXmm = cShape.spPr.xfrm.offX;
 			let globalYmm = cShape.spPr.xfrm.offY;
+
+			let shapeWidth = shape.getCellNumberValueWithScale("Width", drawingPageScale);
+			let shapeHeight =shape.getCellNumberValueWithScale("Height", drawingPageScale);
+
 			if (!(isNaN(txtPinX_inch) || txtPinX_inch === null)  && !(isNaN(txtPinY_inch) || txtPinY_inch === null)) {
 				// https://www.figma.com/file/WiAC4sxQuJaq65h6xppMYC/cloudFare?type=design&node-id=0%3A1&mode=design&t=SZbio0yIyxq0YnMa-1s
 
-				let shapeWidth = shape.getCellNumberValueWithScale("Width", drawingPageScale);
-				let shapeHeight = shape.getCellNumberValueWithScale("Height", drawingPageScale);
 				let shapeLocPinX = shape.getCellNumberValueWithScale("LocPinX", drawingPageScale);
 				let shapeLocPinY = shape.getCellNumberValueWithScale("LocPinY", drawingPageScale);
 				let txtWidth_inch = shape.getCellNumberValueWithScale("TxtWidth", drawingPageScale);
@@ -984,7 +1008,6 @@
 				// oBodyPr.anchor = 4; // 4 - bottom, 1,2,3 - center
 
 				let localXmm = (txtPinX_inch - txtLocPinX_inch) * g_dKoef_in_to_mm;
-				oXfrm.setOffX(globalXmm + localXmm); // mm
 
 				// back to MS coords
 				if (isInvertCoords) {
@@ -1035,16 +1058,16 @@
 					let topCornerOffY = bottomCornerOffY - txtHeight_inch * g_dKoef_in_to_mm;
 					offY = topCornerOffY;
 				}
-				oXfrm.setOffY(offY);
-
+				oXfrm.setOffX(globalXmm + localXmm); // mm
+				oXfrm.setOffY(shapeHeight < 0 ? offY + 2 * shapeHeight * g_dKoef_in_to_mm : offY);
 				oXfrm.setExtX(txtWidth_inch * g_dKoef_in_to_mm);
 				oXfrm.setExtY(txtHeight_inch * g_dKoef_in_to_mm);
 			} else {
 				// create text block with shape sizes
 				oXfrm.setOffX(globalXmm);
-				oXfrm.setOffY(globalYmm);
-				oXfrm.setExtX(shapeWidth_inch * g_dKoef_in_to_mm);
-				oXfrm.setExtY(shapeHeight_inch * g_dKoef_in_to_mm);
+				oXfrm.setOffY(shapeHeight < 0 ? globalYmm + 2 * shapeHeight * g_dKoef_in_to_mm : globalYmm);
+				oXfrm.setExtX(Math.abs(shapeWidth) * g_dKoef_in_to_mm);
+				oXfrm.setExtY(Math.abs(shapeHeight) * g_dKoef_in_to_mm);
 				oXfrm.setRot(shapeAngle);
 			}
 			oSpPr.setXfrm(oXfrm);
@@ -1480,6 +1503,13 @@
 				} else {
 					AscCommon.consoleLog("fillForegndTrans value is themed or something. Not calculated for", this);
 				}
+			} else {
+				AscCommon.consoleLog("fillForegnd cell not found for", this);
+				// try to get from theme
+				// uniFillForegnd = AscVisio.themeval(null, this, pageInfo, visioDocument.themes, "FillColor",
+				// 	undefined, gradientEnabled);
+				// just use white
+				uniFillForegnd = AscFormat.CreateUnfilFromRGB(255, 255, 255);
 			}
 		}
 

@@ -3844,82 +3844,72 @@ CDocument.prototype.private_RecalculateFastParagraph = function(arrChanges, nSta
 		if (isAdd && oPara.IsUseInDocument())
 			arrParagraphs.push(oPara);
 	}
-
-	if (arrParagraphs.length > 0)
+	
+	if (arrParagraphs.length <= 0)
+		return false;
+	
+	let changedPages = {};
+	for (let paraIndex = 0, paraCount = arrParagraphs.length; paraIndex < paraCount; ++paraIndex)
 	{
-		var oFastPages     = {};
-		var bCanFastRecalc = true;
-		for (var nSimpleIndex = 0, nSimplesCount = arrParagraphs.length; nSimpleIndex < nSimplesCount; ++nSimpleIndex)
+		let para = arrParagraphs[paraIndex];
+		
+		if (this.FullRecalc.Id)
 		{
-			var oSimplePara  = arrParagraphs[nSimpleIndex];
-			var arrFastPages = oSimplePara.Recalculate_FastWholeParagraph();
-			if (!arrFastPages || arrFastPages.length <= 0)
-			{
-				bCanFastRecalc = false;
-				break;
-			}
-
-			for (var nFastPageIndex = 0, nFastPagesCount = arrFastPages.length; nFastPageIndex < nFastPagesCount; ++nFastPageIndex)
-			{
-				oFastPages[arrFastPages[nFastPageIndex]] = arrFastPages[nFastPageIndex];
-
-				if (!this.Pages[arrFastPages[nFastPageIndex]])
-				{
-					bCanFastRecalc = false;
-					break;
-				}
-			}
-
-			if (!bCanFastRecalc)
-				break;
-
-			// Если изменения произошли на последней странице параграфа, и за данным параграфом следовал
-			// пустой параграф с новой секцией, тогда его тоже надо пересчитать.
-			var oNextElement  = oSimplePara.Get_DocumentNext();
-			var nLastFastPage = arrFastPages[arrFastPages.length - 1];
-			if (null !== oNextElement && true === this.Pages[nLastFastPage].Check_EndSectionPara(oNextElement))
-				this.private_RecalculateEmptySectionParagraph(oNextElement, oSimplePara, nLastFastPage, oSimplePara.GetAbsoluteColumn(oSimplePara.GetPagesCount() - 1), oSimplePara.GetColumnsCount());
+			// TODO: По-хорошему надо для случая docPos[0].Class !== this
+			//       сделать тоже проверку. Для автофигур и сносок можно найти параграф, к которому они привязаны, а для
+			//       колонтитулов проверить какую секцию сейчас расчитываем
+			let docPos = para.GetDocumentPositionFromObject();
+			if (!docPos.length || (docPos[0].Class === this && docPos[0].Position >= this.FullRecalc.StartIndex))
+				return false;
 		}
-
-
-		if (bCanFastRecalc)
+		
+		let _pages = para.Recalculate_FastWholeParagraph();
+		if (!_pages || _pages.length <= 0)
+			return false;
+		
+		for (let pageIndex = 0, pageCount = _pages.length; pageIndex < pageCount; ++pageIndex)
 		{
-			let bUpdatePlaceholders = false;
-			for (var nPageIndex in oFastPages)
-			{
-				// // Recalculation LOG
-				// console.log("Fast Recalculation Paragraph, PageIndex=" + nPageIndex);
-				this.DrawingDocument.OnRecalculatePage(oFastPages[nPageIndex], this.Pages[nPageIndex]);
-				if (!bUpdatePlaceholders)
-				{
-					const oGraphicPage = this.DrawingObjects.graphicPages[nPageIndex];
-					bUpdatePlaceholders = !!(oGraphicPage && oGraphicPage.getAllDrawings().length);
-				}
-			}
-
-			this.DrawingDocument.OnEndRecalculate(false, true);
-			this.History.Reset_RecalcIndex();
-			this.private_UpdateCursorXY(true, true);
-
-			for (var nSimpleIndex = 0, nSimplesCount = arrParagraphs.length; nSimpleIndex < nSimplesCount; ++nSimpleIndex)
-			{
-				var oSimplePara = arrParagraphs[nSimpleIndex];
-				if (oSimplePara.Parent && oSimplePara.Parent.GetTopDocumentContent)
-				{
-					var oTopDocument = oSimplePara.Parent.GetTopDocumentContent();
-					if (oTopDocument instanceof CFootEndnote)
-						oTopDocument.OnFastRecalculate();
-				}
-			}
-			if (bUpdatePlaceholders)
-            {
-            	this.UpdatePlaceholders();
-			}
-			return true;
+			if (!this.Pages[_pages[pageIndex]])
+				return false;
+			
+			changedPages[_pages[pageIndex]] = _pages[pageIndex];
+		}
+		
+		// Если изменения произошли на последней странице параграфа, и за данным параграфом следовал
+		// пустой параграф с новой секцией, тогда его тоже надо пересчитать.
+		var oNextElement  = para.Get_DocumentNext();
+		var nLastFastPage = _pages[_pages.length - 1];
+		if (null !== oNextElement && true === this.Pages[nLastFastPage].Check_EndSectionPara(oNextElement))
+			this.private_RecalculateEmptySectionParagraph(oNextElement, para, nLastFastPage, para.GetAbsoluteColumn(para.GetPagesCount() - 1), para.GetColumnsCount());
+	}
+	
+	let bUpdatePlaceholders = false;
+	for (var nPageIndex in changedPages)
+	{
+		// // Recalculation LOG
+		// console.log("Fast Recalculation Paragraph, PageIndex=" + nPageIndex);
+		this.DrawingDocument.OnRecalculatePage(changedPages[nPageIndex], this.Pages[nPageIndex]);
+		if (!bUpdatePlaceholders)
+		{
+			const oGraphicPage  = this.DrawingObjects.graphicPages[nPageIndex];
+			bUpdatePlaceholders = !!(oGraphicPage && oGraphicPage.getAllDrawings().length);
 		}
 	}
-
-	return false;
+	
+	this.DrawingDocument.OnEndRecalculate(false, true);
+	this.History.Reset_RecalcIndex();
+	this.private_UpdateCursorXY(true, true);
+	
+	for (let paraIndex = 0, paraCount = arrParagraphs.length; paraIndex < paraCount; ++paraIndex)
+	{
+		arrParagraphs[paraIndex].OnFastRecalculate();
+	}
+	
+	if (bUpdatePlaceholders)
+	{
+		this.UpdatePlaceholders();
+	}
+	return true;
 };
 /**
  * Пересчитываем следующую страницу.
@@ -9782,18 +9772,22 @@ CDocument.prototype.OnKeyDown = function(e)
 		}
 		else if (e.KeyCode === 38) // Top Arrow
 		{
+			let moveCursorUp = true;
 			if (this.IsFillingFormMode())
 			{
-				var oSelectedInfo = this.GetSelectedElementsInfo();
-				var oForm         = oSelectedInfo.GetForm();
+				moveCursorUp = false;
 
-				if (oForm && !oForm.IsComboBox() && !oForm.IsDropDownList())
-					oForm = null;
-
-				if (oForm)
-					this.TurnComboBoxFormValue(oForm, false);
+				let form = this.GetSelectedElementsInfo().GetForm();
+				if (form)
+				{
+					if (form.IsComboBox() || form.IsDropDownList())
+						this.TurnComboBoxFormValue(form, false);
+					else if (form.IsTextForm() || form.IsMultiLineForm())
+						moveCursorUp = true;
+				}
 			}
-			else
+			
+			if (moveCursorUp)
 			{
 				// TODO: Реализовать Ctrl + Up/ Ctrl + Shift + Up
 				// Чтобы при зажатой клавише курсор не пропадал
@@ -9834,18 +9828,22 @@ CDocument.prototype.OnKeyDown = function(e)
 		}
 		else if (e.KeyCode === 40) // Bottom Arrow
 		{
+			let moveCursorDown = true;
 			if (this.IsFillingFormMode())
 			{
-				var oSelectedInfo = this.GetSelectedElementsInfo();
-				var oForm         = oSelectedInfo.GetForm();
-
-				if (oForm && !oForm.IsComboBox() && !oForm.IsDropDownList())
-					oForm = null;
-
-				if (oForm)
-					this.TurnComboBoxFormValue(oForm, true);
+				moveCursorDown = false;
+				
+				let form = this.GetSelectedElementsInfo().GetForm();
+				if (form)
+				{
+					if (form.IsComboBox() || form.IsDropDownList())
+						this.TurnComboBoxFormValue(form, true);
+					else if (form.IsTextForm() && form.IsMultiLineForm())
+						moveCursorDown = true;
+				}
 			}
-			else
+			
+			if (moveCursorDown)
 			{
 				// TODO: Реализовать Ctrl + Down/ Ctrl + Shift + Down
 				// Чтобы при зажатой клавише курсор не пропадал

@@ -528,7 +528,7 @@ var editor;
         callback(false);
         return;
       }
-      callback(AscCommon.parseText(text, options, true));
+      callback(text);
     }
   };
 
@@ -904,6 +904,92 @@ var editor;
 					ws._drawSelection();
 				}
 			}
+		}
+	};
+
+	/**
+	 * @param {string} text
+	 * @param {number | undefined} opt_count
+	 * @param {string[] | undefined} opt_delimiters
+	 * @return {{delimiterChar: string, text: string}}
+	 */
+	function getCSVDelimiter(text, opt_count, opt_delimiters) {
+		//check header: sep=
+		const textHeadLower = text.substring(0, 5).toLowerCase();
+		let delimiter;
+		let offset = 0;
+		if (textHeadLower.startsWith('sep=')) {
+			delimiter = text[4];
+			offset = 5;
+		} else if (textHeadLower.startsWith('"sep=') && '"' === text[6]) {
+			delimiter = text[5];
+			offset = 7;
+		}
+		if (undefined !== delimiter) {
+			//win cr
+			if ('\r' === text[offset]) {
+				offset++;
+			}
+			//check new line
+			if ('\n' === text[offset]) {
+				return {delimiterChar: delimiter, text: text.substring(offset + 1)}
+			}
+		}
+		//Count occurrences of opt_delimiters characters within text
+		const count = opt_count ? Math.min(opt_count, text.length) : text.length;
+		const delimiters = opt_delimiters ? opt_delimiters : [",", "\t", ";", ":"];
+		const counter = {}
+		for (let i = 0; i < delimiters.length; i += 1) {
+			counter[delimiters[i]] = 0;
+		}
+		let isQuoteOpen = false;
+		for (let i = 0; i < count; i += 1) {
+			const sym = text[i];
+			if (sym === '"') {
+				isQuoteOpen = !isQuoteOpen;
+			}
+			if (!isQuoteOpen && counter[sym] != null) {
+				counter[sym] += 1;
+			}
+		}
+		let max = 0;
+		delimiter = delimiters[0];
+		for (let i in counter) {
+			if (counter[i] > max) {
+				max = counter[i];
+				delimiter = i;
+			}
+		}
+		return {delimiterChar: delimiter, text: text};
+	}
+	function getDelimiterEnumByChar(delimiter) {
+		switch (delimiter) {
+			case '\t':
+				return AscCommon.c_oAscCsvDelimiter.Tab;
+			case ';':
+				return AscCommon.c_oAscCsvDelimiter.Semicolon;
+			case ':':
+				return AscCommon.c_oAscCsvDelimiter.Colon;
+			case ',':
+				return AscCommon.c_oAscCsvDelimiter.Comma;
+			case ' ':
+				return AscCommon.c_oAscCsvDelimiter.Space;
+		}
+		return AscCommon.c_oAscCsvDelimiter.None;
+	}
+	/**
+	 * @param {string} text
+	 * @param {number | undefined} opt_count
+	 * @param {string[] | undefined} opt_delimiters
+	 * @return {{delimiterChar: string, text: string}}
+	 */
+	spreadsheet_api.prototype.asc_getCSVDelimiter = function (text, opt_count, opt_delimiters) {
+		let res = getCSVDelimiter(text, opt_count, opt_delimiters);
+		let delimiter = getDelimiterEnumByChar(res.delimiterChar);
+		if (AscCommon.c_oAscCsvDelimiter.None !== delimiter) {
+			return {"text": res.text, "delimiterChar": res.delimiterChar, "delimiter": delimiter};
+		} else {
+			return {"text": res.text, "delimiterChar": res.delimiterChar};
 		}
 	};
 
@@ -4089,41 +4175,11 @@ var editor;
 		  return false;
 	  }
 
-	  var scale = this.asc_getZoom();
+
 	  var t = this;
 	  var addWorksheet = function(res) {
 		  if (res) {
-			  // ToDo перейти от wsViews на wsViewsId
-			  History.Create_NewPoint();
-			  History.StartTransaction();
-
-			  var renameParamsArr = [], renameSheetMap = {};
-			  for (var i = arrSheets.length - 1; i >= 0; --i) {
-				  t.wb.pasteSheet(arrSheets[i], where, arrNames[i], function(renameParams) {
-					  // Делаем активным скопированный
-					  renameParamsArr.push(renameParams);
-					  renameSheetMap[renameParams.lastName] =  renameParams.newName;
-					  t.asc_showWorksheet(where);
-					  t.asc_setZoom(scale);
-					  // Посылаем callback об изменении списка листов
-					  t.sheetsChanged();
-				  });
-
-			  }
-			  //парсинг формул после вставки всех листов, поскольку внутри одного листа может быть ссылка в формуле на другой лист который ещё не вставился
-			  //поэтому дожидаемся вставку всех листов
-			  for(var j = 0; j < renameParamsArr.length; j++) {
-				var newSheet = t.wb.model.getWorksheetByName(renameParamsArr[j].newName);
-			    newSheet.copyFromFormulas(renameParamsArr[j], renameSheetMap);
-			  }
-
-			  // Делаем активным скопированный
-			  t.wbModel.setActive(where);
-			  t.wb.updateWorksheetByModel();
-			  t.wb.showWorksheet();
-			  History.EndTransaction();
-			  // Посылаем callback об изменении списка листов
-			  t.sheetsChanged();
+			  t.wb.pasteSheets(arrSheets, where, arrNames);
 		  }
 	  };
 
@@ -6507,8 +6563,8 @@ var editor;
   spreadsheet_api.prototype.asc_canEnterWizardRange = function(char) {
     return this.wb.canEnterWizardRange(char);
   };
-  spreadsheet_api.prototype.asc_insertArgumentsInFormula = function(val, argNum, argType, name) {
-    var res = this.wb.insertArgumentsInFormula(val, argNum, argType, name);
+  spreadsheet_api.prototype.asc_insertArgumentsInFormula = function(val, argNum, argType, name, bEndInsertArg) {
+    var res = this.wb.insertArgumentsInFormula(val, argNum, argType, name, bEndInsertArg);
     this.wb.restoreFocus();
     return res;
   };
@@ -9678,6 +9734,7 @@ var editor;
   prot["asc_TextImport"] = prot.asc_TextImport;
   prot["asc_TextToColumns"] = prot.asc_TextToColumns;
   prot["asc_TextFromFileOrUrl"] = prot.asc_TextFromFileOrUrl;
+  prot["asc_getCSVDelimiter"] = prot.asc_getCSVDelimiter;
 
   prot["asc_initPrintPreview"] = prot.asc_initPrintPreview;
   prot["asc_updatePrintPreview"] = prot.asc_updatePrintPreview;

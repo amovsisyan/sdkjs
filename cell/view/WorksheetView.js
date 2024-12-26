@@ -3739,8 +3739,6 @@
 			vector_koef /= t.getRetinaPixelRatio();
 		}
 
-		let printScale = printPagesData.scale ? printPagesData.scale : this.getPrintScale();
-
 		this.stringRender.fontNeedUpdate = true;
 		if (null === printPagesData) {
 			// Напечатаем пустую страницу
@@ -3759,6 +3757,7 @@
 			}
 			drawingCtx.EndPage && drawingCtx.EndPage();
 		} else {
+			let printScale = (printPagesData && printPagesData.scale) ? printPagesData.scale : this.getPrintScale();
 			if (this.getRightToLeft()) {
 				let renderingSettings = this.getRenderingSettings();
 				if (!renderingSettings) {
@@ -3904,7 +3903,7 @@
 				oBaseTransform.sx = printScale;
 				oBaseTransform.sy = printScale;
 
-				oBaseTransform.tx = asc_getcvt(0/*mm*/, 3/*px*/, t._getPPIX()) * ( -offsetCols * printScale  +  printPagesData.pageClipRectLeft + (printPagesData.leftFieldInPx - printPagesData.pageClipRectLeft + titleWidth) * printScale) - (t.getCellLeft(range.c1, 3) - t.getCellLeft(0, 3)) * printScale;
+				oBaseTransform.tx = asc_getcvt(0/*mm*/, 3/*px*/, t._getPPIX()) * ( -offsetCols * printScale  +  printPagesData.pageClipRectLeft + (printPagesData.leftFieldInPx - printPagesData.pageClipRectLeft + titleWidth) * printScale) - (t.getRightToLeft() ? -1 : 1) * (t.getCellLeft(range.c1, 3) - t.getCellLeft(0, 3)) * printScale;
 				oBaseTransform.ty = asc_getcvt(0/*mm*/, 3/*px*/, t._getPPIX()) * (printPagesData.pageClipRectTop + (printPagesData.topFieldInPx - printPagesData.pageClipRectTop + titleHeight) * printScale) - (t.getCellTop(range.r1, 3) - t.getCellTop(0, 3)) * printScale;
 
 				//oDocRenderer.transform(oDocRenderer.m_oFullTransform.sx, oDocRenderer.m_oFullTransform.shy, oDocRenderer.m_oFullTransform.shx, oDocRenderer.m_oFullTransform.sy, 100,200)
@@ -3916,7 +3915,7 @@
 					if (oDocRenderer.m_oCoordTransform) {
 						oldTx = oDocRenderer.m_oCoordTransform.tx;
 						oldTy = oDocRenderer.m_oCoordTransform.ty;
-						oDocRenderer.m_oCoordTransform.tx = !t.getRightToLeft() ? (t.getCellLeft(0) - offsetX) : (-t.getCellLeft(0) + ((printPagesData.leftFieldInPx + offsetCols - titleWidth) + t.getCellLeft(Math.max(0,range.c1-1))));
+						oDocRenderer.m_oCoordTransform.tx = !t.getRightToLeft() ? (t.getCellLeft(0) - offsetX) : (-t.getCellLeft(0) + t.getCellLeft(Math.max(0, range.c1)) + printPagesData.leftFieldInPx + offsetCols - titleWidth);
 						oDocRenderer.m_oCoordTransform.ty =  (t.getCellTop(0) - offsetY);
 					}
 					oDocRenderer.SaveGrState();
@@ -7163,7 +7162,7 @@
 					t._lineVer(ctx, x1 + 2*t.getRightToLeftOffset(), y1, y2);
 					break;
 				case c_oAscBorderType.Diag:
-					t.lineDiag(ctx, x1, y1, x2, y2);
+					t._lineDiag(ctx, x1, y1, x2, y2);
 					break;
 			}
 		}
@@ -27021,7 +27020,7 @@
 	};
 	WorksheetView.prototype._moveImageData = function (sx, sy, sw, sh, dx, dy, dw, dh) {
 		if (AscBrowser.isSafari) {
-			this.drawingGraphicCtx.moveImageDataSafari(x, y, moveWidth, ctxH, x - dx, y);
+			this.drawingGraphicCtx.moveImageDataSafari(this.getRightToLeft() ? (this.getCtxWidth() - sx - sw) : sx, sy, sw, sh, this.getRightToLeft() ? (this.getCtxWidth() - dx - dw) : dx, dy);
 		} else {
 			this.drawingGraphicCtx.moveImageData(this.getRightToLeft() ? (this.getCtxWidth() - sx - sw) : sx, sy, sw, sh, this.getRightToLeft() ? (this.getCtxWidth() - dx - dw) : dx, dy);
 		}

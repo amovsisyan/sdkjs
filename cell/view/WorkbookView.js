@@ -1395,7 +1395,7 @@
             }, 1000);
         }
 
-        if (this.isFormulaEditMode && this.isCellEditMode && this.cellEditor) {
+        if (this.isFormulaEditMode && this.isCellEditMode && this.cellEditor && this.cellEditor.isTopLineActive) {
             /* set focus to the top formula entry line */
             this.input.focus();
         }
@@ -3194,15 +3194,39 @@
         return this.getCellEditMode() && this.cellEditor.checkSymbolBeforeRange(char);
     };
 
-	WorkbookView.prototype.insertArgumentsInFormula = function (args, argNum, argType, name) {
+	WorkbookView.prototype.insertArgumentsInFormula = function (args, argNum, argType, name, bEndInsertArg) {
 		if (this.getCellEditMode()) {
+			var ws = this.getActiveWS();
+
+			let needChange = false;
+			if (bEndInsertArg) {
+				if (argType === AscCommonExcel.cElementType.string) {
+					let curArg = args[argNum];
+					//!number + !defname + !quotes
+					if (curArg && !AscCommon.isNumber(curArg) && !(curArg[0] === '"' && curArg[curArg.length - 1] === '"')) {
+						let parser = new AscCommonExcel.parserFormula(curArg, null, ws);
+						let parseResultArg = new AscCommonExcel.ParseResult([], []);
+						parser.parse(true, true, parseResultArg, true);
+
+						let argRes = parser.calculate();
+						if (argRes && argRes.type === AscCommonExcel.cElementType.error && argRes.errorType === AscCommonExcel.cErrorType.wrong_name) {
+							//add quotes
+							args[argNum] = '"' + args[argNum] + '"';
+							needChange = true;
+						}
+					}
+				}
+			}
+
 			var sArguments = args.join(AscCommon.FormulaSeparators.functionArgumentSeparator);
 			this.cellEditor.changeCellText(sArguments);
 
 			if (name) {
-				var ws = this.getActiveWS();
 
 				var res = new AscCommonExcel.CFunctionInfo(name);
+				if (needChange) {
+					res.asc_setArguments(args);
+				}
 				res.argumentsResult = [];
 				var argCalc = ws.calculateWizardFormula(args[argNum], argType);
 				res.argumentsResult[argNum] = argCalc.str;
@@ -4714,6 +4738,89 @@
 		this.getWorksheet()._updateGroups(true);
 		this.getWorksheet()._updateGroups(null);
 	};
+
+	WorkbookView.prototype.pasteSheets = function (arrSheets, insertBefore, arrNames) {
+		var t = this;
+		var pasteProcessor = AscCommonExcel.g_clipboardExcel.pasteProcessor;
+		var newFonts = {}, aPastedImages = [], pastedWorksheets = [];
+		for (let i = 0; i < arrSheets.length; i++) {
+			let sheet_data = arrSheets[i];
+
+			var tempWorkbook, pastedWs, base64;
+			if (typeof (sheet_data) === "string") {
+				base64 = sheet_data;
+				tempWorkbook = new AscCommonExcel.Workbook();
+				tempWorkbook.DrawingDocument = Asc.editor.wbModel.DrawingDocument;
+				tempWorkbook.setCommonIndexObjectsFrom(this.model);
+				aPastedImages = aPastedImages.concat(pasteProcessor._readExcelBinary(base64.split('xslData;')[1], tempWorkbook, true));
+				pastedWs = tempWorkbook.aWorksheets[0];
+			} else {
+				pastedWs = sheet_data;
+				tempWorkbook = sheet_data.workbook;
+			}
+
+			pastedWorksheets.push(pastedWs);
+
+			newFonts = Object.assign(newFonts, tempWorkbook.generateFontMap2());
+			newFonts = pasteProcessor._convertFonts(newFonts);
+			for (let j = 0; j < pastedWs.Drawings.length; j++) {
+				pastedWs.Drawings[j].graphicObject.getAllFonts(newFonts);
+			}
+		}
+
+		var doCopy = function() {
+			History.Create_NewPoint();
+			History.StartTransaction();
+
+			let scale = api.asc_getZoom();
+			let renameParamsArr = [];
+			let renameSheetMap = {};
+			for (let i = 0; i < pastedWorksheets.length; i++) {
+				if (i !== 0) {
+					insertBefore++;
+				}
+				var renameParams = t.model.copyWorksheet(0, insertBefore, arrNames[i], undefined, undefined, undefined, pastedWorksheets[i], base64);
+				//TODO ошибку по срезам добавил в renameParams. необходимо пересмотреть
+				//переименовать эту переменную, либо не добавлять copySlicerError и посылать ошибку в другом месте
+				if (renameParams && renameParams.copySlicerError) {
+					t.handlers.trigger("asc_onError", c_oAscError.ID.MoveSlicerError, c_oAscError.Level.NoCritical);
+				}
+
+				renameParamsArr.push(renameParams);
+				renameSheetMap[renameParams.lastName] =  renameParams.newName;
+				api.asc_showWorksheet(insertBefore);
+				api.asc_setZoom(scale);
+			}
+
+			//парсинг формул после вставки всех листов, поскольку внутри одного листа может быть ссылка в формуле на другой лист который ещё не вставился
+			//поэтому дожидаемся вставку всех листов
+			for(var j = 0; j < renameParamsArr.length; j++) {
+				var newSheet = t.model.getWorksheetByName(renameParamsArr[j].newName);
+				newSheet.copyFromFormulas(renameParamsArr[j], renameSheetMap);
+			}
+
+			// Делаем активным скопированный
+			t.model.setActive(insertBefore);
+			t.updateWorksheetByModel();
+			t.showWorksheet();
+			History.EndTransaction();
+			// Посылаем callback об изменении списка листов
+			api.sheetsChanged();
+		};
+
+		var api = window["Asc"]["editor"];
+		api._loadFonts(newFonts, function () {
+			if (aPastedImages && aPastedImages.length) {
+				pasteProcessor._loadImagesOnServer(aPastedImages, function () {
+					doCopy();
+				});
+			} else {
+				doCopy();
+			}
+		});
+
+	};
+
 	WorkbookView.prototype.pasteSheet = function (sheet_data, insertBefore, name, callback) {
 
 		var t = this;

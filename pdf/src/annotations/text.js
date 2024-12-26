@@ -69,6 +69,8 @@
         UpLeftArrow:    16
     }
 
+    let HALF_SIZE = 11;
+    
     /**
 	 * Class representing a text annotation.
 	 * @constructor
@@ -238,10 +240,10 @@
         let aOrigRect   = this.GetOrigRect();
         let nRotAngle   = oDoc.Viewer.getPageRotate(nPage);
         
-        let nX          = aOrigRect[0] + 0.5 >> 0;
-        let nY          = aOrigRect[1] + 0.5 >> 0;
-        let nWidth      = (aOrigRect[2] - aOrigRect[0]) / oDoc.Viewer.zoom;
-        let nHeight     = (aOrigRect[3] - aOrigRect[1]) / oDoc.Viewer.zoom;
+        let nX          = aOrigRect[0];
+        let nY          = aOrigRect[1];
+        let nWidth      = 21 / oDoc.Viewer.zoom;
+        let nHeight     = 21 / oDoc.Viewer.zoom;
         
         let oCtx = oGraphics.GetContext();
         oCtx.save();
@@ -332,7 +334,29 @@
     CAnnotationText.prototype.IsComment = function() {
         return true;
     };
-    
+    CAnnotationText.prototype.DrawSelected = function(overlay) {
+        overlay.m_oContext.lineWidth    = 3;
+        overlay.m_oContext.globalAlpha  = 1;
+        overlay.m_oContext.strokeStyle  = "rgb(33, 117, 200)";
+        overlay.m_oContext.beginPath();
+
+        let oViewer     = Asc.editor.getDocumentRenderer();
+        let aOrigRect   = this.GetRect();
+        let nX          = aOrigRect[0] + 0.5 >> 0;
+        let nY          = aOrigRect[1] + 0.5 >> 0;
+        let nWidth      = 21 / (oViewer.zoom);
+        let nHeight     = 21 / (oViewer.zoom);
+
+        let aRegions = [[
+            [nX + nWidth, nY],
+            [nX, nY],
+            [nX, nY + nHeight],
+            [nX + nWidth, nY + nHeight]
+        ]];
+
+        AscPDF.fillRegion({regions: aRegions}, overlay, this.GetPage());
+        overlay.m_oContext.stroke();
+    }
     CAnnotationText.prototype.WriteToBinary = function(memory) {
         memory.WriteByte(AscCommon.CommandType.ctAnnotField);
 
@@ -378,9 +402,10 @@
 	
     function drawIconCheck(ctx, x, y, xScale, yScale, rotationAngle) {
         ctx.save();
-        ctx.translate(x + 8 * xScale, y + 8 * yScale);
+        ctx.translate(x + HALF_SIZE * xScale, y + HALF_SIZE * yScale);
         ctx.rotate(rotationAngle);
-        ctx.translate(-8 * xScale, -8 * yScale);
+        ctx.translate(-HALF_SIZE * xScale, -HALF_SIZE * yScale);
+        
         ctx.scale(xScale, yScale);
 
         ctx.strokeStyle="rgba(0,0,0,0)";
@@ -488,9 +513,10 @@
     }
     function drawIconCircle(ctx, x, y, xScale, yScale, rotationAngle) {
         ctx.save();
-        ctx.translate(x + 8 * xScale, y + 8 * yScale);
+        ctx.translate(x + HALF_SIZE * xScale, y + HALF_SIZE * yScale);
         ctx.rotate(rotationAngle);
-        ctx.translate(-8 * xScale, -8 * yScale);
+        ctx.translate(-HALF_SIZE * xScale, -HALF_SIZE * yScale);
+        
         ctx.scale(xScale, yScale);
 
         ctx.strokeStyle="rgba(0,0,0,0)";
@@ -575,9 +601,10 @@
     }
     function drawIconComment(ctx, x, y, xScale, yScale, rotationAngle) {
         ctx.save();
-        ctx.translate(x + 8 * xScale, y + 8 * yScale);
+        ctx.translate(x + HALF_SIZE * xScale, y + HALF_SIZE * yScale);
         ctx.rotate(rotationAngle);
-        ctx.translate(-8 * xScale, -8 * yScale);
+        ctx.translate(-HALF_SIZE * xScale, -HALF_SIZE * yScale);
+        
         ctx.scale(xScale, yScale);
 
         ctx.strokeStyle="rgba(0,0,0,0)";
@@ -726,9 +753,10 @@
     }
     function drawIconCross(ctx, x, y, xScale, yScale, rotationAngle) {
         ctx.save();
-        ctx.translate(x + 8 * xScale, y + 8 * yScale);
+        ctx.translate(x + HALF_SIZE * xScale, y + HALF_SIZE * yScale);
         ctx.rotate(rotationAngle);
-        ctx.translate(-8 * xScale, -8 * yScale);
+        ctx.translate(-HALF_SIZE * xScale, -HALF_SIZE * yScale);
+        
         ctx.scale(xScale, yScale);
 
         ctx.strokeStyle="rgba(0,0,0,0)";
@@ -917,9 +945,10 @@
     }
     function drawIconCrossHairs(ctx, x, y, xScale, yScale, rotationAngle) {
         ctx.save();
-        ctx.translate(x + 8 * xScale, y + 8 * yScale);
+        ctx.translate(x + HALF_SIZE * xScale, y + HALF_SIZE * yScale);
         ctx.rotate(rotationAngle);
-        ctx.translate(-8 * xScale, -8 * yScale);
+        ctx.translate(-HALF_SIZE * xScale, -HALF_SIZE * yScale);
+        
         ctx.scale(xScale, yScale);
 
         ctx.strokeStyle="rgba(0,0,0,0)";
@@ -1006,9 +1035,10 @@
     }
     function drawIconHelp(ctx, x, y, xScale, yScale, rotationAngle) {
         ctx.save();
-        ctx.translate(x + 8 * xScale, y + 8 * yScale);
+        ctx.translate(x, y);
         ctx.rotate(rotationAngle);
-        ctx.translate(-8 * xScale, -8 * yScale);
+        // ctx.translate(-HALF_SIZE * xScale, -HALF_SIZE * yScale);
+        
         ctx.scale(xScale, yScale);
 
         ctx.strokeStyle="rgba(0,0,0,0)";
@@ -1160,9 +1190,10 @@
     }
     function drawIconInsert(ctx, x, y, xScale, yScale, rotationAngle) {
         ctx.save();
-        ctx.translate(x + 8 * xScale, y + 8 * yScale);
+        ctx.translate(x + HALF_SIZE * xScale, y + HALF_SIZE * yScale);
         ctx.rotate(rotationAngle);
-        ctx.translate(-8 * xScale, -8 * yScale);
+        ctx.translate(-HALF_SIZE * xScale, -HALF_SIZE * yScale);
+        
         ctx.scale(xScale, yScale);
 
         ctx.strokeStyle="rgba(0,0,0,0)";
@@ -1234,9 +1265,10 @@
     }
     function drawIconKey(ctx, x, y, xScale, yScale, rotationAngle) {
         ctx.save();
-        ctx.translate(x + 8 * xScale, y + 8 * yScale);
+        ctx.translate(x + HALF_SIZE * xScale, y + HALF_SIZE * yScale);
         ctx.rotate(rotationAngle);
-        ctx.translate(-8 * xScale, -8 * yScale);
+        ctx.translate(-HALF_SIZE * xScale, -HALF_SIZE * yScale);
+        
         ctx.scale(xScale, yScale);
 
         ctx.strokeStyle="rgba(0,0,0,0)";
@@ -1462,9 +1494,10 @@
     }
     function drawIconNewParagraph(ctx, x, y, xScale, yScale, rotationAngle) {
         ctx.save();
-        ctx.translate(x + 8 * xScale, y + 8 * yScale);
+        ctx.translate(x + HALF_SIZE * xScale, y + HALF_SIZE * yScale);
         ctx.rotate(rotationAngle);
-        ctx.translate(-8 * xScale, -8 * yScale);
+        ctx.translate(-HALF_SIZE * xScale, -HALF_SIZE * yScale);
+        
         ctx.scale(xScale, yScale);
 
         ctx.strokeStyle="rgba(0,0,0,0)";
@@ -1609,9 +1642,10 @@
     }
     function drawIconNote(ctx, x, y, xScale, yScale, rotationAngle) {
         ctx.save();
-        ctx.translate(x + 8 * xScale, y + 8 * yScale);
+        ctx.translate(x + HALF_SIZE * xScale, y + HALF_SIZE * yScale);
         ctx.rotate(rotationAngle);
-        ctx.translate(-8 * xScale, -8 * yScale);
+        ctx.translate(-HALF_SIZE * xScale, -HALF_SIZE * yScale);
+
         ctx.scale(xScale, yScale);
 
         ctx.strokeStyle="rgba(0,0,0,0)";
@@ -1725,9 +1759,10 @@
     }
     function drawIconParagraph(ctx, x, y, xScale, yScale, rotationAngle) {
         ctx.save();
-        ctx.translate(x + 8 * xScale, y + 8 * yScale);
+        ctx.translate(x + HALF_SIZE * xScale, y + HALF_SIZE * yScale);
         ctx.rotate(rotationAngle);
-        ctx.translate(-8 * xScale, -8 * yScale);
+        ctx.translate(-HALF_SIZE * xScale, -HALF_SIZE * yScale);
+        
         ctx.scale(xScale, yScale);
 
         ctx.strokeStyle="rgba(0,0,0,0)";
@@ -1810,9 +1845,10 @@
     }
     function drawIconRightArrow(ctx, x, y, xScale, yScale, rotationAngle) {
         ctx.save();
-        ctx.translate(x + 8 * xScale, y + 8 * yScale);
+        ctx.translate(x + HALF_SIZE * xScale, y + HALF_SIZE * yScale);
         ctx.rotate(rotationAngle);
-        ctx.translate(-8 * xScale, -8 * yScale);
+        ctx.translate(-HALF_SIZE * xScale, -HALF_SIZE * yScale);
+        
         ctx.scale(xScale, yScale);
 
         ctx.strokeStyle="rgba(0,0,0,0)";
@@ -1946,9 +1982,10 @@
     }
     function drawIconRightPointer(ctx, x, y, xScale, yScale, rotationAngle) {
         ctx.save();
-        ctx.translate(x + 8 * xScale, y + 8 * yScale);
+        ctx.translate(x + HALF_SIZE * xScale, y + HALF_SIZE * yScale);
         ctx.rotate(rotationAngle);
-        ctx.translate(-8 * xScale, -8 * yScale);
+        ctx.translate(-HALF_SIZE * xScale, -HALF_SIZE * yScale);
+        
         ctx.scale(xScale, yScale);
 
         ctx.strokeStyle="rgba(0,0,0,0)";
@@ -2025,9 +2062,10 @@
     }
     function drawIconStar(ctx, x, y, xScale, yScale, rotationAngle) {
         ctx.save();
-        ctx.translate(x + 8 * xScale, y + 8 * yScale);
+        ctx.translate(x + HALF_SIZE * xScale, y + HALF_SIZE * yScale);
         ctx.rotate(rotationAngle);
-        ctx.translate(-8 * xScale, -8 * yScale);
+        ctx.translate(-HALF_SIZE * xScale, -HALF_SIZE * yScale);
+        
         ctx.scale(xScale, yScale);
 
         ctx.strokeStyle="rgba(0,0,0,0)";
@@ -2195,9 +2233,10 @@
     }
     function drawIconUpArrow(ctx, x, y, xScale, yScale, rotationAngle) {
         ctx.save();
-        ctx.translate(x + 8 * xScale, y + 8 * yScale);
+        ctx.translate(x + HALF_SIZE * xScale, y + HALF_SIZE * yScale);
         ctx.rotate(rotationAngle);
-        ctx.translate(-8 * xScale, -8 * yScale);
+        ctx.translate(-HALF_SIZE * xScale, -HALF_SIZE * yScale);
+        
         ctx.scale(xScale, yScale);
 
         ctx.strokeStyle="rgba(0,0,0,0)";
@@ -2331,9 +2370,10 @@
     }
     function drawIconUpLeftArrow(ctx, x, y, xScale, yScale, rotationAngle) {
         ctx.save();
-        ctx.translate(x + 8 * xScale, y + 8 * yScale);
+        ctx.translate(x + HALF_SIZE * xScale, y + HALF_SIZE * yScale);
         ctx.rotate(rotationAngle);
-        ctx.translate(-8 * xScale, -8 * yScale);
+        ctx.translate(-HALF_SIZE * xScale, -HALF_SIZE * yScale);
+        
         ctx.scale(xScale, yScale);
 
         ctx.strokeStyle="rgba(0,0,0,0)";

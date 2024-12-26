@@ -151,13 +151,19 @@
 
         oViewer.paint(setRedrawPageOnRepaint);
 	};
-	CPageInfo.prototype.RedrawAnnots = function() {
+	CPageInfo.prototype.RedrawAnnots = function(isTextMarkup) {
 		let oViewer = Asc.editor.getDocumentRenderer();
 		let _t = this;
 
 		let nIdx = _t.GetIndex();
 		function setRedrawPageOnRepaint() {
-            _t.needRedrawAnnots = true;
+			if (isTextMarkup) {
+				_t.needRedrawMarkups = true;
+			}
+			else {
+				_t.needRedrawAnnots = true;
+			}
+
 			nIdx != -1 && oViewer.thumbnails && oViewer.thumbnails._repaintPage(nIdx);
         }
 
@@ -241,7 +247,7 @@
         this.annots.splice(nPos, 1);
         
         AscCommon.History.Add(new CChangesPDFDocumentAnnotsContent(this, nPos, [oAnnot], false));
-		this.RedrawAnnots();
+		this.RedrawAnnots(oAnnot.IsTextMarkup());
 	};
 	CPageInfo.prototype.AddField = function(oField, nPos) {
 		if (nPos == undefined) {
@@ -804,10 +810,10 @@
 			let oThumbnails = this.thumbnails;
 			for (var i = 0, len = pages.length; i < len; i++)
 			{
+				oThumbnails && oThumbnails._repaintPage(pages[i]);
 				if (pages[i] >= this.startVisiblePage && pages[i] <= this.endVisiblePage)
 				{
 					delete this.drawingPages[pages[i]].Image;
-					oThumbnails && oThumbnails._repaintPage(pages[i]);
 				}
 			}
 
@@ -2102,8 +2108,8 @@
 				for (let i = page.annots.length -1; i >= 0; i--)
 				{
 					let oAnnot = page.annots[i];
-					let nAnnotWidth		= AscCommon.AscBrowser.retinaPixelRatio * 16 / (this.zoom);
-					let nAnnotHeight	= AscCommon.AscBrowser.retinaPixelRatio * 16 / (this.zoom);
+					let nAnnotWidth		= 20 / (this.zoom);
+					let nAnnotHeight	= 20 / (this.zoom);
 					
 					if (true !== bGetHidden && oAnnot.IsHidden() == true || false == oAnnot.IsComment())
 						continue;
@@ -2871,7 +2877,7 @@
 						oDoc.mouseDownAnnot.GetDocContent().DrawSelectionOnPage(0);
 						oDrDoc.private_EndDrawSelection();
 					}
-					if (oDoc.mouseDownAnnot.IsTextMarkup())
+					if (oDoc.mouseDownAnnot.IsTextMarkup() || oDoc.mouseDownAnnot.IsComment())
 					{
 						oDrDoc.AutoShapesTrack.SetCurrentPage(oDoc.mouseDownAnnot.GetPage(), true);
 						oDoc.mouseDownAnnot.DrawSelected(this.overlay);
