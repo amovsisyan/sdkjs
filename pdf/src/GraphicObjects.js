@@ -1010,9 +1010,6 @@
         return false;
     };
     CGraphicObjects.prototype.selectObject = function (object, pageIndex) {
-        if (object.IsAnnot() && !object.IsShapeBased())
-            return;
-        
         object.select(this, pageIndex);
         if (AscFormat.MoveAnimationDrawObject) {
             if (object instanceof AscFormat.MoveAnimationDrawObject) {

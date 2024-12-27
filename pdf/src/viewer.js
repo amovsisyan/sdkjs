@@ -2880,7 +2880,10 @@
 					if (oDoc.mouseDownAnnot.IsTextMarkup() || oDoc.mouseDownAnnot.IsComment())
 					{
 						oDrDoc.AutoShapesTrack.SetCurrentPage(oDoc.mouseDownAnnot.GetPage(), true);
-						oDoc.mouseDownAnnot.DrawSelected(this.overlay);
+						let oController = oDoc.GetController();
+						for (let i = 0; i < oController.selectedObjects.length; i++) {
+							oController.selectedObjects[i].DrawSelected(this.overlay);
+						}
 					}
 					else if (oDoc.mouseDownAnnot.IsComment() == false)
 					{
